@@ -4,22 +4,8 @@ import java.util.HashMap;
 import javafx.scene.shape.Circle;
 
 public class Board {
-	public class Point{
-		public int x;
-		public int y;
-
-		public Point(int x, int y) {
-			this.x = x;
-			this.y = y;
-		}
-
-		@Override
-		public String toString() {
-			return String.format("(%d, %d)", x, y);
-		}
-	}
-	public enum Piece{
-		rook(1), knight(3), bishop(3), castle(7), queen(9), king(100);
+		public enum Piece{
+		PAWN(1), KNIGHT(3), BISHOP(3), CASTLE(7), QUEEN(9), KING(100);
 		private double value;
 
 		Piece(double value){
@@ -33,17 +19,17 @@ public class Board {
 		@Override
 		public String toString() {
 			switch (this) {
-			case rook:
+			case PAWN:
 				return "Rook";
-			case knight:
+			case KNIGHT:
 				return "Knight";
-			case bishop:
+			case BISHOP:
 				return "Bishop";
-			case castle:
+			case CASTLE:
 				return "Castle";
-			case queen:
+			case QUEEN:
 				return "Queen";
-			case king:
+			case KING:
 				return "King";
 			default:
 				return "Unkown";
@@ -60,30 +46,30 @@ public class Board {
 
 		//Rooks
 		for(int x = 0; x < 8; x++){
-			whitePieces.put(new Point(x, (topPlayer ? 1 : 6)), Piece.rook);
-			blackPieces.put(new Point(x, (topPlayer ? 6 : 1)), Piece.rook);
+			whitePieces.put(new Point(x, (topPlayer ? 1 : 6)), Piece.PAWN);
+			blackPieces.put(new Point(x, (topPlayer ? 6 : 1)), Piece.PAWN);
 		}
 
 		int whiteY = topPlayer ? 0 : 7;
 		int blackY = topPlayer ? 7 : 0;
 
-		whitePieces.put(new Point(0, whiteY), Piece.castle);
-		whitePieces.put(new Point(1, whiteY), Piece.knight);
-		whitePieces.put(new Point(2, whiteY), Piece.bishop);
-		whitePieces.put(new Point(3, whiteY), Piece.queen);
-		whitePieces.put(new Point(4, whiteY), Piece.king);
-		whitePieces.put(new Point(5, whiteY), Piece.bishop);
-		whitePieces.put(new Point(6, whiteY), Piece.king);
-		whitePieces.put(new Point(7, whiteY), Piece.castle);
+		whitePieces.put(new Point(0, whiteY), Piece.CASTLE);
+		whitePieces.put(new Point(1, whiteY), Piece.KNIGHT);
+		whitePieces.put(new Point(2, whiteY), Piece.BISHOP);
+		whitePieces.put(new Point(3, whiteY), Piece.QUEEN);
+		whitePieces.put(new Point(4, whiteY), Piece.KING);
+		whitePieces.put(new Point(5, whiteY), Piece.BISHOP);
+		whitePieces.put(new Point(6, whiteY), Piece.KING);
+		whitePieces.put(new Point(7, whiteY), Piece.CASTLE);
 		
-		blackPieces.put(new Point(0, blackY), Piece.castle);
-		blackPieces.put(new Point(1, blackY), Piece.knight);
-		blackPieces.put(new Point(2, blackY), Piece.bishop);
-		blackPieces.put(new Point(3, blackY), Piece.queen);
-		blackPieces.put(new Point(4, blackY), Piece.king);
-		blackPieces.put(new Point(5, blackY), Piece.bishop);
-		blackPieces.put(new Point(6, blackY), Piece.king);
-		blackPieces.put(new Point(7, blackY), Piece.castle);
+		blackPieces.put(new Point(0, blackY), Piece.CASTLE);
+		blackPieces.put(new Point(1, blackY), Piece.KNIGHT);
+		blackPieces.put(new Point(2, blackY), Piece.BISHOP);
+		blackPieces.put(new Point(3, blackY), Piece.QUEEN);
+		blackPieces.put(new Point(4, blackY), Piece.KING);
+		blackPieces.put(new Point(5, blackY), Piece.BISHOP);
+		blackPieces.put(new Point(6, blackY), Piece.KING);
+		blackPieces.put(new Point(7, blackY), Piece.CASTLE);
 		
 	}
 }
