@@ -25,5 +25,8 @@ public class Point{
 	public int hashCode() {
 		return x + y*10;
 	}
+	public boolean isValid(){
+		return(x >= 0 && x < 8 && y >= 0 && y < 8);
+	}
 }
 
