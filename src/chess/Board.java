@@ -1,7 +1,6 @@
 package chess;
+import java.util.ArrayList;
 import java.util.HashMap;
-
-import javafx.scene.shape.Circle;
 
 public class Board {
 		public enum Piece{
@@ -14,6 +13,11 @@ public class Board {
 
 		public double getValue(){
 			return value;
+		}
+		
+		public ArrayList<Move> getPossMoves(Board board){
+		return new ArrayList<>();
+		//TODO Make get poss moves for piece
 		}
 
 		@Override
@@ -41,11 +45,23 @@ public class Board {
 	HashMap<Point, Piece> blackPieces;
 	
 	public boolean turn;
+	public boolean topPlayer;
+	
+	public boolean whiteCanLeftCastle;
+	public boolean whiteCanRightCastle;
+	public boolean blackCanLeftCastle;
+	public boolean blackCanRightCastle;
 
 	public Board(boolean topPlayer) {
 		whitePieces  = new HashMap<>();
 		blackPieces  = new HashMap<>();
 		turn = true;
+		this.topPlayer = topPlayer;
+		
+		whiteCanLeftCastle = true;
+		whiteCanRightCastle = true;
+		blackCanLeftCastle = true;
+		blackCanRightCastle = true;
 
 		//Rooks
 		for(int x = 0; x < 8; x++){

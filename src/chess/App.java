@@ -5,6 +5,7 @@ import java.util.HashMap;
 import javafx.animation.PathTransition;
 import javafx.application.Application;
 import javafx.beans.binding.Bindings;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
@@ -14,6 +15,7 @@ import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.image.ImageView;
@@ -40,6 +42,7 @@ public class App extends Application {
 	Board board;
 	
 	SimpleIntegerProperty skill;
+	boolean topPlayer = false;
 	Point selected;
 	StringProperty message;
 	
@@ -53,6 +56,10 @@ public class App extends Application {
 		message = new SimpleStringProperty();
 		window = primaryStage;
 		window.setTitle("Chess");
+		window.setWidth(1000);
+		window.setHeight(1000);
+		window.setMinHeight(550);
+		window.setMinWidth(450);
 		
 	//Initialize
 		
@@ -70,7 +77,11 @@ public class App extends Application {
 		Label skillLabel = new Label();
 		skillLabel.textProperty().bind(Bindings.format("%.0f", skill.valueProperty()));
 		
-		buttons.getChildren().addAll(reset,skill,skillLabel);
+		CheckBox bottomPlayer = new CheckBox("White at Bottom");
+		bottomPlayer.setOnAction(e -> topPlayer = !bottomPlayer.isSelected());
+		bottomPlayer.setSelected(true);
+		
+		buttons.getChildren().addAll(reset,skill,skillLabel,bottomPlayer);
 
 		//Message
 		Label mess = new Label();
@@ -84,7 +95,11 @@ public class App extends Application {
 		
 		//Stack Pane
 		layout = new StackPane();
-		canvas = new Canvas(400, 400);
+		canvas = new Canvas(100,100);
+		
+		window.widthProperty().addListener(e -> resize());
+		window.heightProperty().addListener(e -> resize());
+
 		step = canvas.getWidth()/8;
 		
 		//Initialize
@@ -92,6 +107,8 @@ public class App extends Application {
 		layout.getChildren().add(canvas);
 		
 		initiatePieces();
+		
+		System.out.println(blackIcons.get(new Point(7, 1)).xProperty());
 		
 		//Master Layout
 		BorderPane masterLayout = new BorderPane();
@@ -109,29 +126,33 @@ public class App extends Application {
 		});
 		canvas.setOnMouseClicked(e -> {
 			System.out.println("Clicked");
-			click(e.getX(), e.getY());
-		});
-		canvas.setOnMousePressed(e -> {
-			System.out.println("Pressed");
-		});
-		canvas.setOnMouseReleased(e -> {
-			System.out.println("Released");
+			click(e.getX(), e.getY(),null);
 		});
 		
-		window.addEventHandler(MouseEvent.MOUSE_CLICKED, e -> {
-			System.out.println("Click");
-		});
 		
 		//Show the Window
-		window.setWidth(1000);
-		window.setHeight(1000);
 		window.show();
 		
 		setupAnimation(.5,.3);
 	}
 	
+	private void resize(){
+		double size = Double.min(window.getHeight()-150, window.getWidth()-40);
+		canvas.setWidth(size);
+		canvas.setHeight(size);
+		step = size/8;
+		initiateBoard();
+		for(ImageView icon: blackIcons.values()){
+			icon.setFitWidth(step);
+		}
+		for(ImageView icon: whiteIcons.values()){
+			icon.setFitWidth(step);
+		}
+		setupAnimation(.0001, 0);
+	}
 	private void initiateBoard(){
 		GraphicsContext gc = canvas.getGraphicsContext2D();
+		gc.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
 		
 		boolean startBlack = true;
 		for(int y = 0; y < 8; y++){
@@ -142,11 +163,17 @@ public class App extends Application {
 				gc.fillRect(step*x, step*y, step, step);
 				black = !black;
 			}
-			startBlack = !startBlack;	
-			
+			startBlack = !startBlack;		
 		}
+		if(selected != null)
+			select(selected);
 	}
 	private void initiatePieces(){
+		layout.getChildren().removeAll(blackIcons.values());
+		layout.getChildren().removeAll(whiteIcons.values());
+		blackIcons.clear();
+		whiteIcons.clear();
+		
 		for(Point point: board.blackPieces.keySet()){
 			Board.Piece piece = board.blackPieces.get(point);
 			ImageView icon = initPiece(point, false, piece);
@@ -160,7 +187,6 @@ public class App extends Application {
 			whiteIcons.put(point, icon);
 			layout.getChildren().add(icon);
 		}		
-		//TODO: Download icons and initiate them
 	}
 	private ImageView initPiece(Point p, boolean player, Board.Piece piece){
 		String color = (player ? "White_" : "Black_") + piece.toString() + ".png";
@@ -168,6 +194,7 @@ public class App extends Application {
 		icon.setPreserveRatio(true);
 		icon.setFitWidth(step);
 		icon.setVisible(false);
+		icon.setOnMouseClicked(e-> click(0,0,p));
 		return icon;
 	}
 	
@@ -195,7 +222,7 @@ public class App extends Application {
 			icon.setVisible(true);
 			
 			double[] t = getLayoutCoord(p);
-			double diff = canvas.getWidth()/16;
+			double diff = step/2;
 			
 			Line path = new Line(diff, diff, t[0], t[1]);
 			PathTransition move = new PathTransition();
@@ -210,10 +237,12 @@ public class App extends Application {
 		ImageView icon;
 		if(whiteIcons.containsKey(from)){
 			icon = whiteIcons.remove(from);
+			icon.setOnMouseClicked(e-> click(0,0,to));
 			whiteIcons.put(to, icon);
 		}
 		else if(blackIcons.containsKey(from)){
 			icon = blackIcons.remove(from);
+			icon.setOnMouseClicked(e-> click(0,0,to));
 			blackIcons.put(to, icon);
 		}
 		else{
@@ -237,13 +266,19 @@ public class App extends Application {
 		return new double[]{(step * p.x), (step * p.y)};
 	}
 	private Point getPoint(double x, double y){
+		//FIXME fix getPoint to layout click instead of canvas click
 		double start = 0 - step * 3;
 		x /= step;
 		y /= step;
 		return new Point((int)x, (int)y);
 	}
-	private void click(double x, double y){
-		Point clicked = getPoint(x, y);
+	private void click(double x, double y, Point p){
+		Point clicked;
+		if(p == null)
+			clicked = getPoint(x, y);
+		else
+			clicked = p;
+		
 		if(!clicked.isValid()){							//Clicked Outside Board
 			System.out.println(clicked);
 			return;
@@ -271,8 +306,9 @@ public class App extends Application {
 		double[] grid = getCanvasCoord(p);
 		GraphicsContext gc = canvas.getGraphicsContext2D();
 		gc.setStroke(Color.YELLOW);
-		gc.setLineWidth(10);
-		gc.strokeRect(grid[0]+5, grid[1]+5 ,step-10, step-10);
+		double width = step/10;
+		gc.setLineWidth(width);
+		gc.strokeRect(grid[0]+width/2, grid[1]+width/2 ,step-width, step-width);
 	}
 	private void deSelect(){
 		selected = null;
@@ -280,6 +316,9 @@ public class App extends Application {
 		initiateBoard();
 	}
 	private void reset(){
+		deSelect();
+		board = new Board(topPlayer);
+		initiatePieces();
 		setupAnimation(.5,0);
 	}
 	private boolean playerHasPiece(Point p, boolean player){
