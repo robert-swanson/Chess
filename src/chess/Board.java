@@ -2,7 +2,13 @@ package chess;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+/**
+ * Manages the black and white pieces
+ */
 public class Board {
+	/**
+	 * Describes a piece on the board
+	 */
 		public enum Piece{
 		PAWN(1), KNIGHT(3), BISHOP(3), ROOK(7), QUEEN(9), KING(100);
 		private double value;
@@ -11,10 +17,22 @@ public class Board {
 			this.value = value;
 		}
 
+		/**
+		 * Gets the value of the piece
+		 * @return
+		 * the number value
+		 */
 		public double getValue(){
 			return value;
 		}
 		
+		/**
+		 * Returns the possible moves the piece can make given the position of every other piece on the board
+		 * @param board
+		 * The board
+		 * @return
+		 * An arrayList of the possible mobes the piece can make
+		 */
 		public ArrayList<Move> getPossMoves(Board board){
 		return new ArrayList<>();
 		//TODO Make get poss moves for piece
@@ -52,6 +70,10 @@ public class Board {
 	public boolean blackCanLeftCastle;
 	public boolean blackCanRightCastle;
 
+	/**
+	 * Initailizes the pieces on the board according to what player is on the top
+	 * @param topPlayer
+	 */
 	public Board(boolean topPlayer) {
 		whitePieces  = new HashMap<>();
 		blackPieces  = new HashMap<>();
@@ -104,7 +126,15 @@ public class Board {
 		
 	}
 	
-	public void move(Point from, Point to){			//Temporary, for testing graphics
+	/**
+	 * Determines if a move is valid and if so, changes the board accordingly
+	 * @param from
+	 * The beginning position of the piece
+	 * @param to
+	 * The ending position of the piece
+	 */
+	public void move(Point from, Point to){
+		//TODO move piece on board
 		if(whitePieces.containsKey(from)){
 			whitePieces.put(to, whitePieces.remove(from));
 		}

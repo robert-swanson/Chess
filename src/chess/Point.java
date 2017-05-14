@@ -1,5 +1,7 @@
 package chess;
-
+/**
+ * Describes a x and y position on the game board
+ */
 public class Point{
 	public int x;
 	public int y;
@@ -25,6 +27,12 @@ public class Point{
 	public int hashCode() {
 		return x + y*10;
 	}
+	
+	/**
+	 * Determines if the point is within the bounds of the board
+	 * @return
+	 * true if the point is on the board
+	 */
 	public boolean isValid(){
 		return(x >= 0 && x < 8 && y >= 0 && y < 8);
 	}

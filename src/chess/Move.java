@@ -1,5 +1,8 @@
 package chess;
 
+/**
+ * Describes a move, the piece moving, and if a piece was captured
+ */
 public class Move {
 	Board board;
 	Board.Piece piece;
@@ -30,10 +33,16 @@ public class Move {
 		//TODO validateMove
 	}
 	
+	/**
+	 * Does the move to the board
+	 */
 	public void doMove(){
 		//TODO doMove
 	}
 	
+	/**
+	 * Undoes the move to the board
+	 */
 	public void undoMove(){
 		//TODO undoMove
 	}

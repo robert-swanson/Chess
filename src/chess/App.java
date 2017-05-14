@@ -30,6 +30,10 @@ import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
+/**
+ * Maneges the graphics and user actions
+ * @author robertswanson
+ */
 public class App extends Application {
 	
 	Stage window;
@@ -45,6 +49,10 @@ public class App extends Application {
 	boolean topPlayer = false;
 	Point selected;
 	StringProperty message;
+	
+	public static void main(String[] args){
+		launch(args);
+	}
 	
 	@Override
 	public void start(Stage primaryStage) throws Exception {
@@ -135,7 +143,9 @@ public class App extends Application {
 		
 		setupAnimation(.5,.3);
 	}
-	
+	/**
+	 * Called when the window is resized. It fits the canvas and reinstansiates the pieces to fit
+	 */
 	private void resize(){
 		double size = Double.min(window.getHeight()-150, window.getWidth()-40);
 		canvas.setWidth(size);
@@ -150,6 +160,10 @@ public class App extends Application {
 		}
 		setupAnimation(.0001, 0);
 	}
+	
+	/**
+	 * Draws the board on the canvas
+	 */
 	private void initiateBoard(){
 		GraphicsContext gc = canvas.getGraphicsContext2D();
 		gc.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
@@ -168,6 +182,10 @@ public class App extends Application {
 		if(selected != null)
 			select(selected);
 	}
+	
+	/**
+	 * Creates and adds an icon for every piece on the board
+	 */
 	private void initiatePieces(){
 		layout.getChildren().removeAll(blackIcons.values());
 		layout.getChildren().removeAll(whiteIcons.values());
@@ -198,10 +216,13 @@ public class App extends Application {
 		return icon;
 	}
 	
-	
-	public static void main(String[] args){
-		launch(args);
-	}
+	/**
+	 * Animates the pieces coming out from the center
+	 * @param duration
+	 * The duration of the animation
+	 * @param delay
+	 * The delay before the animation plays
+	 */
 	private void setupAnimation(double duration, double delay){
 		ArrayList<Point> points = new ArrayList<>();
 		points.addAll(board.blackPieces.keySet());
@@ -233,6 +254,16 @@ public class App extends Application {
 			move.play();
 		}
 	}
+	
+	/**
+	 * Animates a move
+	 * @param from
+//	 * The point describing where the piece starts
+	 * @param to
+	 * The point describing where the piece starts
+	 * @param duration
+	 * The duration of the animation
+	 */
 	private void animateMove(Point from, Point to, double duration){
 		ImageView icon;
 		if(whiteIcons.containsKey(from)){
@@ -258,20 +289,53 @@ public class App extends Application {
 		move.setNode(icon);
 		move.play();
 	}
+	
+	/**
+	 * Gets the coordinate relative to the middle of the layout: (0,0) = Middle of window
+	 * @param p
+	 * The point to be converted
+	 * @return
+	 * An int[]{x,y} describing where the point is in relation to the layout
+	 */
 	private double[] getLayoutCoord(Point p){
 		double start = 0 - step * 3;
 		return new double[]{(start + step * p.x), (start + step * p.y)};
 	}
+	
+	/**
+	 * Gets the coordinate relative to the canvas: (0,0) = top left corner
+	 * The point to be converted
+	 * @return
+	 * An int[]{x,y} describing where the point is in relation to the canvas
+	 */
 	private double[] getCanvasCoord(Point p){
 		return new double[]{(step * p.x), (step * p.y)};
 	}
+	
+	/**
+	 * Gets the point of a click on the canvas
+	 * @param x
+	 * x value of the click
+	 * @param y
+	 * y value of the click
+	 * @return
+	 * the position on the board clicked
+	 */
 	private Point getPoint(double x, double y){
-		//FIXME fix getPoint to layout click instead of canvas click
-		double start = 0 - step * 3;
 		x /= step;
 		y /= step;
 		return new Point((int)x, (int)y);
 	}
+	
+	/**
+	 * Handles the click event at either the given point or canvas coordinates
+	 * @param x
+	 * Canvas x coordinate of click
+	 * @param y
+	 * Canvas y coordinate of click
+	 * @param p
+	 * Point clicked
+	 */
 	private void click(double x, double y, Point p){
 		Point clicked;
 		if(p == null)
@@ -301,6 +365,11 @@ public class App extends Application {
 			}
 		}
 	}
+	
+	/**
+	 * Draws a box on the board to show the point is selected
+	 * @param p
+	 */
 	private void select(Point p){
 		selected = p;
 		double[] grid = getCanvasCoord(p);
@@ -310,27 +379,39 @@ public class App extends Application {
 		gc.setLineWidth(width);
 		gc.strokeRect(grid[0]+width/2, grid[1]+width/2 ,step-width, step-width);
 	}
+	
+	/**
+	 * Clears any selected points
+	 */
 	private void deSelect(){
 		selected = null;
 		canvas.getGraphicsContext2D().clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
 		initiateBoard();
 	}
+	
+	/**
+	 * Resets the board
+	 */
 	private void reset(){
 		deSelect();
 		board = new Board(topPlayer);
 		initiatePieces();
 		setupAnimation(.5,0);
 	}
+	
+	/**
+	 * Determines if the given player has a piece at the given point
+	 * @param p
+	 * The point in question
+	 * @param player
+	 * The player
+	 * @return
+	 * returns true if the player has a piece there
+	 */
 	private boolean playerHasPiece(Point p, boolean player){
 		if(player){
 			return board.whitePieces.containsKey(p);
 		}
 		return board.blackPieces.containsKey(p);
-	}
-	private Board.Piece getPiece(Point p, boolean player){
-		if(player){
-			return board.whitePieces.get(p);
-		}
-		return board.blackPieces.get(p);
 	}
 }
