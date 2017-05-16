@@ -143,4 +143,19 @@ public class Board {
 		}
 		turn = !turn;
 	}
+	
+	/**
+	 * Returns the piece at a specific location, returns null if there is no piece there
+	 * @param p
+	 * The point we are looking at
+	 */
+	public Piece getPiece(Point p)
+	{
+		if(whitePieces.containsKey(p))
+			return whitePieces.get(p);
+		else if(blackPieces.containsKey(p))
+			return blackPieces.get(p);
+		else
+			return null;
+	}
 }

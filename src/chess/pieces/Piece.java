@@ -18,6 +18,11 @@ public abstract class Piece
 		pos = p;
 	}
 	
+	public boolean isWhite()
+	{
+		return color;
+	}
+	
 	public int getValue()
 	{
 		return value;
