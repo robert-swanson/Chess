@@ -105,6 +105,7 @@ public class App extends Application {
 		layout = new StackPane();
 		canvas = new Canvas(100,100);
 		
+		resize();
 		window.widthProperty().addListener(e -> resize());
 		window.heightProperty().addListener(e -> resize());
 
