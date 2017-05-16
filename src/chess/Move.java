@@ -26,7 +26,7 @@ public class Move {
 	 * Boolean indicated whether the move can be made
 	 */
 	public boolean validateMove(){
-		if(!from.isValid() || !to.isValid())
+		if(!from.isInBoard() || !to.isInBoard())
 			return false;
 		
 		return false;

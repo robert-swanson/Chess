@@ -1,4 +1,5 @@
 
-public class Application {
+public class Application
+{
 
 }

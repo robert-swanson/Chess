@@ -343,7 +343,7 @@ public class App extends Application {
 		else
 			clicked = p;
 		
-		if(!clicked.isValid()){							//Clicked Outside Board
+		if(!clicked.isInBoard()){							//Clicked Outside Board
 			System.out.println(clicked);
 			return;
 		}
