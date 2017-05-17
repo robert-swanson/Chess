@@ -2,10 +2,14 @@ package chess;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import com.sun.scenario.Settings;
+
 import javafx.animation.PathTransition;
 import javafx.application.Application;
 import javafx.beans.binding.Bindings;
+import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
@@ -26,7 +30,6 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Line;
 import javafx.scene.text.Font;
-import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
@@ -45,10 +48,16 @@ public class App extends Application {
 	StackPane layout;
 	Board board;
 	
-	SimpleIntegerProperty skill;
-	boolean topPlayer = false;
 	Point selected;
 	StringProperty message;
+	
+	//Settings
+	SettingsView settings;
+	int depth = 4;
+	SimpleBooleanProperty alphabeta = new SimpleBooleanProperty(true);
+	SimpleBooleanProperty topPlayer = new SimpleBooleanProperty(false);
+	
+	
 	
 	public static void main(String[] args){
 		launch(args);
@@ -62,6 +71,8 @@ public class App extends Application {
 
 //Graphics
 		message = new SimpleStringProperty();
+		settings = new SettingsView();
+		
 		window = primaryStage;
 		window.setTitle("Chess");
 		window.setWidth(1000);
@@ -70,6 +81,20 @@ public class App extends Application {
 		window.setMinWidth(450);
 		
 	//Initialize
+		//Bind Settings to Values
+		topPlayer.bind(((CheckBox)settings.options.get("Top Player")).selectedProperty());
+		CheckBox ab = (CheckBox)settings.options.get("alphabeta");
+		ab.setSelected(true);
+		alphabeta.bind(ab.selectedProperty());
+		
+		Slider s = (Slider)settings.options.get("Depth");
+		s.valueProperty().addListener(e -> {
+			depth = (int)s.getValue();
+		});
+		depth = 1;
+		
+		//Add Settings Here
+		
 		
 		//Buttons
 		HBox buttons = new HBox(10);
@@ -79,17 +104,18 @@ public class App extends Application {
 		Button reset = new Button("Restart");
 		reset.setOnAction(e -> reset());
 		
-		Slider skill = new Slider(0, 8, 4);
-		this.skill = new SimpleIntegerProperty();
-		this.skill.bind(skill.valueProperty());
-		Label skillLabel = new Label();
-		skillLabel.textProperty().bind(Bindings.format("%.0f", skill.valueProperty()));
+		Button undo = new Button("Undo");
+		undo.setOnAction(e -> {
+			if(board.history.isEmpty())
+				System.out.println("Cant Undo");
+			else
+				board.history.pop().undoMove();
+		});
 		
-		CheckBox bottomPlayer = new CheckBox("White at Bottom");
-		bottomPlayer.setOnAction(e -> topPlayer = !bottomPlayer.isSelected());
-		bottomPlayer.setSelected(true);
+		Button sButton = new Button("Settings");
+		sButton.setOnAction(e -> settings.display());
 		
-		buttons.getChildren().addAll(reset,skill,skillLabel,bottomPlayer);
+		buttons.getChildren().addAll(reset, undo, sButton);
 
 		//Message
 		Label mess = new Label();
@@ -105,7 +131,6 @@ public class App extends Application {
 		layout = new StackPane();
 		canvas = new Canvas(100,100);
 		
-		resize();
 		window.widthProperty().addListener(e -> resize());
 		window.heightProperty().addListener(e -> resize());
 
@@ -116,9 +141,7 @@ public class App extends Application {
 		layout.getChildren().add(canvas);
 		
 		initiatePieces();
-		
-		System.out.println(blackIcons.get(new Point(7, 1)).xProperty());
-		
+				
 		//Master Layout
 		BorderPane masterLayout = new BorderPane();
 		masterLayout.setCenter(layout);
@@ -130,11 +153,7 @@ public class App extends Application {
 		window.setScene(board);
 		
 		//Mouse Handler
-		canvas.addEventHandler(MouseEvent.MOUSE_CLICKED, e -> {
-			System.out.println("Left");
-		});
 		canvas.setOnMouseClicked(e -> {
-			System.out.println("Clicked");
 			click(e.getX(), e.getY(),null);
 		});
 		
@@ -142,7 +161,9 @@ public class App extends Application {
 		//Show the Window
 		window.show();
 		
+		resize();
 		setupAnimation(.5,.3);
+
 	}
 	/**
 	 * Called when the window is resized. It fits the canvas and reinstansiates the pieces to fit
@@ -238,7 +259,7 @@ public class App extends Application {
 				icon = blackIcons.get(p);
 			}
 			else{
-				System.err.printf("No icon at %s", p.toString());
+				System.err.printf("No icon at %s\n", p.toString());
 				continue;
 			}
 			icon.setVisible(true);
@@ -395,9 +416,10 @@ public class App extends Application {
 	 */
 	private void reset(){
 		deSelect();
-		board = new Board(topPlayer);
+		board = new Board(topPlayer.get());
 		initiatePieces();
 		setupAnimation(.5,0);
+		System.out.printf("Settings\nTop Player: %s\nDepth: %d\nAlphabeta %b\n",topPlayer.get() ? "White" : "Black", depth, alphabeta.get());
 	}
 	
 	/**
