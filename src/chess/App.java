@@ -3,10 +3,14 @@ package chess;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import com.sun.scenario.Settings;
+
 import javafx.animation.PathTransition;
 import javafx.application.Application;
 import javafx.beans.binding.Bindings;
+import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
@@ -27,7 +31,6 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Line;
 import javafx.scene.text.Font;
-import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
@@ -47,14 +50,31 @@ public class App extends Application
 	Canvas canvas;
 	StackPane layout;
 	Board board;
+<<<<<<< HEAD
 
 	SimpleIntegerProperty skill;
 	boolean topPlayer = false;
+=======
+	
+>>>>>>> branch 'master' of https://AfricanRunner@bitbucket.org/vancomputerscience/chess.git
 	Point selected;
 	StringProperty message;
+<<<<<<< HEAD
 
 	public static void main(String[] args)
 	{
+=======
+	
+	//Settings
+	SettingsView settings;
+	int depth = 4;
+	SimpleBooleanProperty alphabeta = new SimpleBooleanProperty(true);
+	SimpleBooleanProperty topPlayer = new SimpleBooleanProperty(false);
+	
+	
+	
+	public static void main(String[] args){
+>>>>>>> branch 'master' of https://AfricanRunner@bitbucket.org/vancomputerscience/chess.git
 		launch(args);
 	}
 
@@ -67,22 +87,46 @@ public class App extends Application
 
 		// Graphics
 		message = new SimpleStringProperty();
+		settings = new SettingsView();
+		
 		window = primaryStage;
 		window.setTitle("Chess");
 		window.setWidth(1000);
 		window.setHeight(1000);
 		window.setMinHeight(550);
 		window.setMinWidth(450);
+<<<<<<< HEAD
 
 		// Initialize
 
 		// Buttons
+=======
+		
+	//Initialize
+		//Bind Settings to Values
+		topPlayer.bind(((CheckBox)settings.options.get("Top Player")).selectedProperty());
+		CheckBox ab = (CheckBox)settings.options.get("alphabeta");
+		ab.setSelected(true);
+		alphabeta.bind(ab.selectedProperty());
+		
+		Slider s = (Slider)settings.options.get("Depth");
+		s.valueProperty().addListener(e -> {
+			depth = (int)s.getValue();
+		});
+		depth = 1;
+		
+		//Add Settings Here
+		
+		
+		//Buttons
+>>>>>>> branch 'master' of https://AfricanRunner@bitbucket.org/vancomputerscience/chess.git
 		HBox buttons = new HBox(10);
 		buttons.setAlignment(Pos.CENTER);
 		buttons.setPadding(new Insets(10, 0, 10, 0));
 
 		Button reset = new Button("Restart");
 		reset.setOnAction(e -> reset());
+<<<<<<< HEAD
 
 		Slider skill = new Slider(0, 8, 4);
 		this.skill = new SimpleIntegerProperty();
@@ -93,6 +137,21 @@ public class App extends Application
 		CheckBox bottomPlayer = new CheckBox("White at Bottom");
 		bottomPlayer.setOnAction(e -> topPlayer = !bottomPlayer.isSelected());
 		bottomPlayer.setSelected(true);
+=======
+		
+		Button undo = new Button("Undo");
+		undo.setOnAction(e -> {
+			if(board.history.isEmpty())
+				System.out.println("Cant Undo");
+			else
+				board.history.pop().undoMove();
+		});
+		
+		Button sButton = new Button("Settings");
+		sButton.setOnAction(e -> settings.display());
+		
+		buttons.getChildren().addAll(reset, undo, sButton);
+>>>>>>> branch 'master' of https://AfricanRunner@bitbucket.org/vancomputerscience/chess.git
 
 		buttons.getChildren().addAll(reset, skill, skillLabel, bottomPlayer);
 
@@ -120,10 +179,15 @@ public class App extends Application
 		layout.getChildren().add(canvas);
 
 		initiatePieces();
+<<<<<<< HEAD
 
 		System.out.println(blackIcons.get(new Point(7, 1)).xProperty());
 
 		// Master Layout
+=======
+				
+		//Master Layout
+>>>>>>> branch 'master' of https://AfricanRunner@bitbucket.org/vancomputerscience/chess.git
 		BorderPane masterLayout = new BorderPane();
 		masterLayout.setCenter(layout);
 		masterLayout.setBottom(buttons);
@@ -132,20 +196,36 @@ public class App extends Application
 		Scene board = new Scene(masterLayout);
 		board.setFill(Color.LIGHTGREY);
 		window.setScene(board);
+<<<<<<< HEAD
 
 		// Mouse Handler
 		canvas.addEventHandler(MouseEvent.MOUSE_CLICKED, e -> {
 			System.out.println("Left");
 		});
+=======
+		
+		//Mouse Handler
+>>>>>>> branch 'master' of https://AfricanRunner@bitbucket.org/vancomputerscience/chess.git
 		canvas.setOnMouseClicked(e -> {
+<<<<<<< HEAD
 			System.out.println("Clicked");
 			click(e.getX(), e.getY(), null);
+=======
+			click(e.getX(), e.getY(),null);
+>>>>>>> branch 'master' of https://AfricanRunner@bitbucket.org/vancomputerscience/chess.git
 		});
 
 		// Show the Window
 		window.show();
+<<<<<<< HEAD
 
 		setupAnimation(.5, .3);
+=======
+		
+		resize();
+		setupAnimation(.5,.3);
+
+>>>>>>> branch 'master' of https://AfricanRunner@bitbucket.org/vancomputerscience/chess.git
 	}
 
 	/**
@@ -258,9 +338,14 @@ public class App extends Application
 			{
 				icon = blackIcons.get(p);
 			}
+<<<<<<< HEAD
 			else
 			{
 				System.err.printf("No icon at %s", p.toString());
+=======
+			else{
+				System.err.printf("No icon at %s\n", p.toString());
+>>>>>>> branch 'master' of https://AfricanRunner@bitbucket.org/vancomputerscience/chess.git
 				continue;
 			}
 			icon.setVisible(true);
@@ -442,9 +527,14 @@ public class App extends Application
 	private void reset()
 	{
 		deSelect();
-		board = new Board(topPlayer);
+		board = new Board(topPlayer.get());
 		initiatePieces();
+<<<<<<< HEAD
 		setupAnimation(.5, 0);
+=======
+		setupAnimation(.5,0);
+		System.out.printf("Settings\nTop Player: %s\nDepth: %d\nAlphabeta %b\n",topPlayer.get() ? "White" : "Black", depth, alphabeta.get());
+>>>>>>> branch 'master' of https://AfricanRunner@bitbucket.org/vancomputerscience/chess.git
 	}
 
 	/**

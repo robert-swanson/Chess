@@ -1,6 +1,7 @@
 package chess;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Stack;
 
 /**
  * Manages the black and white pieces
@@ -12,7 +13,7 @@ public class Board {
 		public enum Piece{
 		PAWN(1), KNIGHT(3), BISHOP(3), ROOK(7), QUEEN(9), KING(100);
 		private double value;
-
+		
 		Piece(double value){
 			this.value = value;
 		}
@@ -62,6 +63,8 @@ public class Board {
 	HashMap<Point, Piece> whitePieces;
 	HashMap<Point, Piece> blackPieces;
 	
+	public Stack<Move> history;
+	
 	public boolean turn;
 	public boolean topPlayer;
 	
@@ -84,6 +87,8 @@ public class Board {
 		whiteCanRightCastle = true;
 		blackCanLeftCastle = true;
 		blackCanRightCastle = true;
+		
+		history = new Stack<>();
 
 		//Rooks
 		for(int x = 0; x < 8; x++){
