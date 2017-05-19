@@ -10,9 +10,9 @@ public class Pawn extends Piece
 {
 	private boolean hasMoved;
 
-	public Pawn(Point pos)
+	public Pawn(boolean c)
 	{
-		super(1, pos);
+		super(1, c);
 		hasMoved = false;
 	}
 
@@ -27,7 +27,7 @@ public class Pawn extends Piece
 	}
 
 	//TODO check if in bounds
-	public ArrayList<Move> getMoves(Board board)
+	public ArrayList<Move> getMoves(Board board, Point pos)
 	{
 		ArrayList<Move> moves = new ArrayList<Move>();
 

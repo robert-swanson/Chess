@@ -4,6 +4,7 @@ import java.util.HashMap;
 
 import com.sun.scenario.Settings;
 
+import chess.pieces.Piece;
 import javafx.animation.PathTransition;
 import javafx.application.Application;
 import javafx.beans.binding.Bindings;
@@ -13,6 +14,8 @@ import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -20,6 +23,7 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.image.ImageView;
@@ -56,6 +60,7 @@ public class App extends Application {
 	int depth = 4;
 	SimpleBooleanProperty alphabeta = new SimpleBooleanProperty(true);
 	SimpleBooleanProperty topPlayer = new SimpleBooleanProperty(false);
+	SimpleStringProperty mode = new SimpleStringProperty("Player vs Computer");
 	
 	
 	
@@ -104,6 +109,14 @@ public class App extends Application {
 		Button reset = new Button("Restart");
 		reset.setOnAction(e -> reset());
 		
+		ObservableList<String> modes = FXCollections.observableArrayList(
+				"Player vs Player", 
+				"Player vs Computer", 
+				"Computer vs Computer");
+		ComboBox<String> gameMode = new ComboBox<>(modes);
+		gameMode.setValue("Player vs Computer");
+		mode.bind(gameMode.valueProperty());
+		
 		Button undo = new Button("Undo");
 		undo.setOnAction(e -> {
 			if(board.history.isEmpty())
@@ -115,7 +128,7 @@ public class App extends Application {
 		Button sButton = new Button("Settings");
 		sButton.setOnAction(e -> settings.display());
 		
-		buttons.getChildren().addAll(reset, undo, sButton);
+		buttons.getChildren().addAll(reset, undo, gameMode, sButton);
 
 		//Message
 		Label mess = new Label();
@@ -215,20 +228,20 @@ public class App extends Application {
 		whiteIcons.clear();
 		
 		for(Point point: board.blackPieces.keySet()){
-			Board.Piece piece = board.blackPieces.get(point);
+			Piece piece = board.blackPieces.get(point);
 			ImageView icon = initPiece(point, false, piece);
 			
 			blackIcons.put(point, icon);
 			layout.getChildren().add(icon);
 		}
 		for(Point point: board.whitePieces.keySet()){
-			Board.Piece piece = board.whitePieces.get(point);
+			Piece piece = board.whitePieces.get(point);
 			ImageView icon = initPiece(point, true, piece);
 			whiteIcons.put(point, icon);
 			layout.getChildren().add(icon);
 		}		
 	}
-	private ImageView initPiece(Point p, boolean player, Board.Piece piece){
+	private ImageView initPiece(Point p, boolean player, Piece piece){
 		String color = (player ? "White_" : "Black_") + piece.toString() + ".png";
 		ImageView icon = new ImageView(getClass().getResource(color).toString());
 		icon.setPreserveRatio(true);
@@ -359,33 +372,46 @@ public class App extends Application {
 	 * Point clicked
 	 */
 	private void click(double x, double y, Point p){
+		if(mode.get().equals("Computer vs Computer"))
+			return;
 		Point clicked;
 		if(p == null)
 			clicked = getPoint(x, y);
 		else
 			clicked = p;
 		
-		if(!clicked.isInBoard()){							//Clicked Outside Board
-			System.out.println(clicked);
-			return;
-		}
-		if(selected == null){							//Was not already selected
-			if(playerHasPiece(clicked, board.turn)){	//Clicked Own Piece
+		if(selected == null && playerHasPiece(clicked, board.turn)){ //Initial selection
 				select(clicked);	
-			}
 		}
 		else{
-			if(!playerHasPiece(clicked, board.turn)){	//Tried Move
-				animateMove(selected, clicked, .5);
-				board.move(selected, clicked);
+			if(!playerHasPiece(clicked, board.turn)){	//Move
+//				animateMove(selected, clicked, .5);
+//				board.move(selected, clicked);
+				move(new Move(selected, clicked));
 				deSelect();
-				message.set(String.format("It is %s's turn", (board.turn ? "White" : "Black")));
 			}
 			else{										//Reselected
 				deSelect();
 				select(clicked);
 			}
 		}
+	}
+	
+	private void move(Move m){
+		if(!playerHasPiece(m.from, board.turn)){
+			message.set("It's not your turn");
+			return;
+		}
+		if(mode.get().equals("Player vs Computer") && topPlayer.get() == board.turn){
+			message.set("You cannot play for the computer");
+			return;
+		}
+		if(board.getPiece(m.from).getMoves(board, m.from).contains(m)){
+			board.move(m);
+			message.set(String.format("It is %s's turn", (board.turn ? "White" : "Black")));
+		}
+		else
+			message.set("Invalid Move");
 	}
 	
 	/**

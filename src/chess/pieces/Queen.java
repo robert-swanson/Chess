@@ -8,12 +8,12 @@ import chess.Point;
 
 public class Queen extends Piece
 {
-	public Queen(Point p)
+	public Queen(boolean c)
 	{
-		super(9, p);
+		super(9, c);
 	}
 
-	public ArrayList<Move> getMoves(Board board)
+	public ArrayList<Move> getMoves(Board board, Point pos)
 	{
 		ArrayList<Move> moves = new ArrayList<Move>();
 		

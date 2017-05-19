@@ -1,20 +1,25 @@
 package chess;
 
+import chess.pieces.Piece;
+
 /**
  * Describes a move, the piece moving, and if a piece was captured
  */
 public class Move
 {
 	Board board;
-	Board.Piece piece;
+	Piece piece;
 	Point from;
 	Point to;
 
-	Board.Piece capturedPiece;
+	Piece capturedPiece;
 	boolean checkMated;
 	
 	boolean specialMove;
 
+	public Move(Point from, Point to){
+		this(from, to, null);
+	}
 	public Move(Point from, Point to, Board board)
 	{
 		this(from, to, board, false);
@@ -75,5 +80,14 @@ public class Move
 			rv += ", checkmated opponent";
 		}
 		return rv;
+	}
+	
+	@Override
+	public boolean equals(Object obj) {		//Ignores properties
+		if(obj instanceof Move){
+			Move m = (Move)obj;
+			return m.from == from && m.to == to && m.piece == piece;
+		}
+		return false;
 	}
 }

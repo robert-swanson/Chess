@@ -10,13 +10,13 @@ public class Rook extends Piece
 {
 	private boolean hasMoved;
 	
-	public Rook(Point p)
+	public Rook(boolean c)
 	{
-		super(5, p);
+		super(5, c);
 		hasMoved = false;
 	}
 
-	public ArrayList<Move> getMoves(Board board)
+	public ArrayList<Move> getMoves(Board board, Point pos)
 	{
 		ArrayList<Move> moves = new ArrayList<Move>();
 		

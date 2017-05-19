@@ -9,13 +9,12 @@ import chess.Point;
 public abstract class Piece
 {
 	protected int value;
-	protected Point pos;
 	protected boolean color;
 	
-	public Piece(int v, Point p)
+	public Piece(int v, boolean c)
 	{
 		value = v;
-		pos = p;
+		color = c;
 	}
 	
 	public boolean isWhite()
@@ -27,17 +26,23 @@ public abstract class Piece
 	{
 		return value;
 	}
-	
-	public void setPos(Point p)
-	{
-		pos = p;
+	@Override
+	public String toString() {
+		if(this instanceof Bishop)
+			return "Bishop";
+		else if(this instanceof King)
+			return "King";
+		else if(this instanceof Knight)
+			return "Knight";
+		else if(this instanceof Pawn)
+			return "Pawn";
+		else if(this instanceof Queen)
+			return "Queen";
+		else if(this instanceof Rook)
+			return "Rook";
+		else
+			return "Unkown Piece";
 	}
-	
-	public Point getPos()
-	{
-		return pos;
-	}
-	
-	public abstract ArrayList<Move> getMoves(Board board);
+	public abstract ArrayList<Move> getMoves(Board board, Point pos);
 	
 }

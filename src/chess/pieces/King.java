@@ -10,14 +10,14 @@ public class King extends Piece
 {
 	private boolean hasMoved;
 	
-	public King(Point p)
+	public King(boolean c)
 	{
-		super(100, p);
+		super(100, c);
 		hasMoved = false;
 	}
 
 	//Still to do
-	public ArrayList<Move> getMoves(Board board)
+	public ArrayList<Move> getMoves(Board board, Point pos)
 	{
 		ArrayList<Move> moves = new ArrayList<Move>();
 		
