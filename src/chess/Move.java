@@ -9,8 +9,8 @@ public class Move
 {
 	Board board;
 	Piece piece;
-	Point from;
-	Point to;
+	public Point from;
+	public Point to;
 
 	Piece capturedPiece;
 	boolean checkMated;
@@ -32,8 +32,7 @@ public class Move
 		this.to = to;
 		this.board = board;
 		this.specialMove = specialMove;
-		//TODO
-		//Check to see if there is a piece at the "to" point, if there is then make it the caputured piece
+		this.piece = board.getPiece(from);
 	}
 
 	/**
@@ -70,7 +69,7 @@ public class Move
 	@Override
 	public String toString()
 	{
-		String rv = String.format("%s %s -> %s", piece.toString(), from.toString(), to.toString());
+		String rv = String.format("%s -> %s",from.toString(), to.toString());
 		if (capturedPiece != null)
 		{
 			rv += String.format(", Captured %s", capturedPiece.toString());
@@ -86,7 +85,7 @@ public class Move
 	public boolean equals(Object obj) {		//Ignores properties
 		if(obj instanceof Move){
 			Move m = (Move)obj;
-			return m.from == from && m.to == to && m.piece == piece;
+			return m.from.equals(from) && m.to.equals(to) && m.piece.equals(piece);
 		}
 		return false;
 	}

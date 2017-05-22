@@ -29,34 +29,28 @@ public class Pawn extends Piece
 	//TODO check if in bounds
 	public ArrayList<Move> getMoves(Board board, Point pos)
 	{
+		boolean up = board.rules.topPlayer != this.color;
 		ArrayList<Move> moves = new ArrayList<Move>();
-
-//		if(!hasMoved)
-//		{
-//			moves.add(new Move(pos, pos.getNewPoint(2, 0), board, true));
-//			moves.add(new Move(pos, pos.getNewPoint(1, 0), board, true));
-//			
-//			Piece p = board.getPiece(pos.getNewPoint(1, 7));
-//			if(p.color != this.color)
-//				moves.add(new Move(pos, pos.getNewPoint(1, 7), board, true));
-//			
-//			Piece p2 = board.getPiece(pos.getNewPoint(1, 1));
-//			if(p.color != this.color)
-//				moves.add(new Move(pos, pos.getNewPoint(1, 1), board, true));
-//		}
-//		else
-//		{
-//			moves.add(new Move(pos, pos.getNewPoint(1, 0), board));
-//
-//			Piece p = board.getPiece(pos.getNewPoint(1, 7));
-//			if(p.color != this.color)
-//				moves.add(new Move(pos, pos.getNewPoint(1, 7), board));
-//			
-//			Piece p2 = board.getPiece(pos.getNewPoint(1, 1));
-//			if(p.color != this.color)
-//				moves.add(new Move(pos, pos.getNewPoint(1, 1), board));
-//		}
-
+		Point jump = pos.getNewPoint(2, (up ? 0 : 4));
+		Boolean jumpO = board.getWhoOccupiesAt(jump);
+		
+		Point capLeft = pos.getNewPoint(1, (up ? 7 : 5));
+		Boolean capLeftO = board.getWhoOccupiesAt(capLeft);
+		
+		Point capRight = pos.getNewPoint(1, (up ? 1 : 3));
+		Boolean capRightO = board.getWhoOccupiesAt(capRight);
+		
+		Point forward = pos.getNewPoint(1, (up ? 0 : 4));
+		Boolean forwardO = board.getWhoOccupiesAt(forward);
+		
+		if(!hasMoved && jumpO == null)
+			moves.add(new Move(pos, jump, board, true));
+		if(capLeftO != null && capLeftO == !this.color)
+			moves.add(new Move(pos, capLeft,board));
+		if(capRightO != null && capRightO == !this.color)
+			moves.add(new Move(pos, capRight, board));
+		if(forwardO == null)
+			moves.add(new Move(pos, forward,board));
 		return moves;
 	}
 }

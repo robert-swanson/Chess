@@ -50,6 +50,7 @@ public class SettingsView{
 		ok.setAlignment(Pos.CENTER);
 		ok.setOnAction(e -> {
 			window.close();
+			
 		});
 
 

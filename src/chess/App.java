@@ -4,8 +4,12 @@ import java.util.HashMap;
 
 import com.sun.scenario.Settings;
 
+import chess.Board.RuleSet.GameMode;
 import chess.pieces.Piece;
+import javafx.animation.FadeTransition;
+import javafx.animation.ParallelTransition;
 import javafx.animation.PathTransition;
+import javafx.animation.RotateTransition;
 import javafx.application.Application;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.DoubleProperty;
@@ -100,6 +104,7 @@ public class App extends Application {
 		sButton.setOnAction(e -> {
 			SettingsView s = new SettingsView(board);
 			s.display();
+			reset();
 		});
 		
 		buttons.getChildren().addAll(reset, undo, sButton);
@@ -298,7 +303,29 @@ public class App extends Application {
 		move.setNode(icon);
 		move.play();
 	}
-	
+	private void animateCapture(Point pos, double duration, boolean color){
+		ImageView icon;
+		if(color)
+			icon = whiteIcons.get(pos);
+		else
+			icon = blackIcons.get(pos);
+		
+		System.out.println(duration);
+		RotateTransition rotate = new RotateTransition(Duration.seconds(duration),icon);
+		rotate.setByAngle(200);
+		FadeTransition fade = new FadeTransition(Duration.seconds(duration), icon);
+		fade.setFromValue(1.0);
+		fade.setToValue(0.0);
+		ParallelTransition capture = new ParallelTransition(rotate, fade);
+		capture.setOnFinished(e -> {
+			if(color)
+				whiteIcons.remove(pos);
+			else
+				blackIcons.remove(pos);
+			layout.getChildren().remove(icon);
+		});
+		capture.play();
+	}
 	/**
 	 * Gets the coordinate relative to the middle of the layout: (0,0) = Middle of window
 	 * @param p
@@ -359,9 +386,7 @@ public class App extends Application {
 		}
 		else{
 			if(!playerHasPiece(clicked, board.turn)){	//Move
-//				animateMove(selected, clicked, .5);
-//				board.move(selected, clicked);
-				move(new Move(selected, clicked));
+				move(new Move(selected, clicked, board));
 				deSelect();
 			}
 			else{										//Reselected
@@ -376,12 +401,20 @@ public class App extends Application {
 			message.set("It's not your turn");
 			return;
 		}
-		if(board.rules.mode.toString().equals("Player vs Computer") && board.rules.topPlayer == board.turn){
+		else if(board.rules.mode == GameMode.pvc && board.rules.topPlayer == board.turn){
 			message.set("You cannot play for the computer");
 			return;
 		}
-		if(board.getPiece(m.from).getMoves(board, m.from).contains(m)){
-			board.move(m);
+		else if(board.getPiece(m.from).getMoves(board, m.from).contains(m)){
+			if(board.move(m)){
+				if (m.piece.isWhite()){
+					animateCapture(m.to, .5, false);
+				}
+				else
+					animateCapture(m.to, .5, true);
+
+			}
+			animateMove(m.from, m.to, .5);
 			message.set(String.format("It is %s's turn", (board.turn ? "White" : "Black")));
 		}
 		else

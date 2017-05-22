@@ -54,16 +54,16 @@ public class Board {
 				}
 			}
 		}
-		GameMode mode;
-		boolean cantCastleThroughCheck;
-		boolean cantCastleAfterCheck;
-		boolean topPlayer;
-		boolean computerPlayer;
+		public GameMode mode;
+		public boolean cantCastleThroughCheck;
+		public boolean cantCastleAfterCheck;
+		public boolean topPlayer;
+		public boolean computerPlayer;
 		
 		TimeLimit timeLimit;
 
 		public RuleSet() {
-			mode = GameMode.pvc;
+			mode = GameMode.pvp;
 			cantCastleThroughCheck = true;
 			cantCastleAfterCheck = false;
 			topPlayer = false;
@@ -90,7 +90,7 @@ public class Board {
 	AI black;
 	AI white;
 
-	RuleSet rules;
+	public RuleSet rules;
 
 	public Stack<Move> history;
 
@@ -115,10 +115,10 @@ public class Board {
 
 		history = new Stack<>();
 
-		//Rooks
+		//Pawns
 		for(int x = 0; x < 8; x++){
 			whitePieces.put(new Point(x, (topPlayer ? 1 : 6)), new Pawn(true));
-			blackPieces.put(new Point(x, (topPlayer ? 6 : 1)), new Pawn(true));
+			blackPieces.put(new Point(x, (topPlayer ? 6 : 1)), new Pawn(false));
 		}
 
 		int whiteY = topPlayer ? 0 : 7;
@@ -163,15 +163,27 @@ public class Board {
 	 * @param to
 	 * The ending position of the piece
 	 */
-	public void move(Move m){
+	public boolean move(Move m){
 		//TODO move piece on board
-		if(whitePieces.containsKey(m.from)){
+		boolean captured = false;
+		if(m.piece.isWhite() && whitePieces.containsKey(m.from)){
 			whitePieces.put(m.to, whitePieces.remove(m.from));
+			if(blackPieces.containsKey(m.to)){
+				blackPieces.remove(m.to);
+				captured = true;
+				System.out.println("White captured");
+			}
 		}
 		else if(blackPieces.containsKey(m.from)){
 			blackPieces.put(m.to, blackPieces.remove(m.from));
+			if(whitePieces.containsKey(m.to)){
+				whitePieces.remove(m.to);
+				captured = true;
+				System.out.println("Black captured");
+			}
 		}
 		turn = !turn;
+		return captured;
 	}
 
 	/**
@@ -185,6 +197,14 @@ public class Board {
 			return whitePieces.get(p);
 		else if(blackPieces.containsKey(p))
 			return blackPieces.get(p);
+		else
+			return null;
+	}
+	public Boolean getWhoOccupiesAt(Point p){
+		if(whitePieces.containsKey(p))
+			return true;
+		else if(blackPieces.containsKey(p))
+			return false;
 		else
 			return null;
 	}
