@@ -8,7 +8,36 @@ import javafx.beans.property.SimpleIntegerProperty;
  * Maneges the logic for the chess AI
  */
 public class AI {
+	public class Stratagy{
+		int depth;
+		boolean alphaBeta;
+		boolean transpositionTable;
+		boolean killerHeuristic;
+		int killerHeuristicDepth;
+		boolean iterativeDeepening;
+		int iterativedeepeningDepth;
+		
+		public Stratagy() {
+			depth = 5;
+			alphaBeta = true;
+			transpositionTable = false;
+			killerHeuristic =  false;
+			killerHeuristicDepth = 0;
+			iterativeDeepening = false;
+			iterativedeepeningDepth = 0;
+		}
+		@Override
+		public String toString() {
+		return String.format("Stratagy\n"
+				+ "Depth: %d\n"
+				+ "AlphaBeta: %b\n"
+				+ "Transposition Table: %b\n"
+				+ "Killer Heuristic: %b Depth: %d\n"
+				+ "Iterative Deepening: %b Depth: %d\n",depth, alphaBeta, transpositionTable, killerHeuristic, killerHeuristicDepth, iterativeDeepening, iterativedeepeningDepth);
+		}
+	}
 	Board board;
+	Stratagy stratagy;
 	boolean player;
 	
 	public SimpleIntegerProperty skill;
@@ -16,6 +45,7 @@ public class AI {
 	public AI(Board board, boolean player) {
 		this.board = board;
 		this.player = player;
+		stratagy = new Stratagy();
 	}
 	
 	/**

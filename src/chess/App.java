@@ -18,6 +18,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -26,11 +27,13 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
+import javafx.scene.control.TextField;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Line;
 import javafx.scene.text.Font;
@@ -42,7 +45,6 @@ import javafx.util.Duration;
  * @author robertswanson
  */
 public class App extends Application {
-	
 	Stage window;
 	HashMap<Point, ImageView> whiteIcons;
 	HashMap<Point, ImageView> blackIcons;
@@ -55,28 +57,18 @@ public class App extends Application {
 	Point selected;
 	StringProperty message;
 	
-	//Settings
-	SettingsView settings;
-	int depth = 4;
-	SimpleBooleanProperty alphabeta = new SimpleBooleanProperty(true);
-	SimpleBooleanProperty topPlayer = new SimpleBooleanProperty(false);
-	SimpleStringProperty mode = new SimpleStringProperty("Player vs Computer");
-	
-	
-	
 	public static void main(String[] args){
 		launch(args);
 	}
 	
 	@Override
 	public void start(Stage primaryStage) throws Exception {
-		board = new Board(false);
+		board = new Board();
 		whiteIcons = new HashMap<>();
 		blackIcons = new HashMap<>();
 
 //Graphics
 		message = new SimpleStringProperty();
-		settings = new SettingsView();
 		
 		window = primaryStage;
 		window.setTitle("Chess");
@@ -86,20 +78,7 @@ public class App extends Application {
 		window.setMinWidth(450);
 		
 	//Initialize
-		//Bind Settings to Values
-		topPlayer.bind(((CheckBox)settings.options.get("Top Player")).selectedProperty());
-		CheckBox ab = (CheckBox)settings.options.get("alphabeta");
-		ab.setSelected(true);
-		alphabeta.bind(ab.selectedProperty());
-		
-		Slider s = (Slider)settings.options.get("Depth");
-		s.valueProperty().addListener(e -> {
-			depth = (int)s.getValue();
-		});
-		depth = 1;
-		
-		//Add Settings Here
-		
+	
 		
 		//Buttons
 		HBox buttons = new HBox(10);
@@ -108,14 +87,6 @@ public class App extends Application {
 		
 		Button reset = new Button("Restart");
 		reset.setOnAction(e -> reset());
-		
-		ObservableList<String> modes = FXCollections.observableArrayList(
-				"Player vs Player", 
-				"Player vs Computer", 
-				"Computer vs Computer");
-		ComboBox<String> gameMode = new ComboBox<>(modes);
-		gameMode.setValue("Player vs Computer");
-		mode.bind(gameMode.valueProperty());
 		
 		Button undo = new Button("Undo");
 		undo.setOnAction(e -> {
@@ -126,9 +97,12 @@ public class App extends Application {
 		});
 		
 		Button sButton = new Button("Settings");
-		sButton.setOnAction(e -> settings.display());
+		sButton.setOnAction(e -> {
+			SettingsView s = new SettingsView(board);
+			s.display();
+		});
 		
-		buttons.getChildren().addAll(reset, undo, gameMode, sButton);
+		buttons.getChildren().addAll(reset, undo, sButton);
 
 		//Message
 		Label mess = new Label();
@@ -372,7 +346,7 @@ public class App extends Application {
 	 * Point clicked
 	 */
 	private void click(double x, double y, Point p){
-		if(mode.get().equals("Computer vs Computer"))
+		if(board.rules.mode.toString().equals("Computer vs Computer"))
 			return;
 		Point clicked;
 		if(p == null)
@@ -402,7 +376,7 @@ public class App extends Application {
 			message.set("It's not your turn");
 			return;
 		}
-		if(mode.get().equals("Player vs Computer") && topPlayer.get() == board.turn){
+		if(board.rules.mode.toString().equals("Player vs Computer") && board.rules.topPlayer == board.turn){
 			message.set("You cannot play for the computer");
 			return;
 		}
@@ -442,10 +416,12 @@ public class App extends Application {
 	 */
 	private void reset(){
 		deSelect();
-		board = new Board(topPlayer.get());
+		board.setUpBoard();
 		initiatePieces();
 		setupAnimation(.5,0);
-		System.out.printf("Settings\nTop Player: %s\nDepth: %d\nAlphabeta %b\n",topPlayer.get() ? "White" : "Black", depth, alphabeta.get());
+		System.out.println(board.rules);
+		System.out.println("White " + board.white.stratagy);
+		System.out.println("Black" + board.black.stratagy);
 	}
 	
 	/**
@@ -462,5 +438,22 @@ public class App extends Application {
 			return board.whitePieces.containsKey(p);
 		}
 		return board.blackPieces.containsKey(p);
+	}
+	public static void SetUpVBox(VBox layout){
+		layout.setAlignment(Pos.CENTER);
+		layout.setSpacing(10);
+	}
+	public static void SetUpHBox(HBox layout){
+		layout.setAlignment(Pos.CENTER);
+		layout.setSpacing(10);
+	}
+	public static void SetUpTextField(TextField text){
+		text.setMaxWidth(60);
+	}
+	public static void SetMargins(VBox layout){
+		
+		VBox.setMargin(layout.getChildren().get(0), new Insets(10,0,0,0));
+		VBox.setMargin(layout.getChildren().get(layout.getChildren().size()-1), new Insets(0,0,10,0));
+
 	}
 }

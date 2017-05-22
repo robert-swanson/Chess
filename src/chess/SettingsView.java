@@ -1,15 +1,17 @@
 package chess;
 
-import java.util.HashMap;
-
-import javafx.geometry.Insets;
+import chess.AI.Stratagy;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
-import javafx.scene.control.Control;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.Slider;
+import javafx.scene.control.Separator;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -19,75 +21,275 @@ import javafx.stage.Stage;
 
 public class SettingsView{
 	Stage window;
-	
-	HashMap<String, Control> options;
-	
-	SettingsView(){
-		options = new HashMap<>();
-		options.put("alphabeta", new CheckBox("alphabeta"));
-		options.put("Top Player", new CheckBox("Top Player"));
-		options.put("Depth", new Slider(0, 8, 4));
+	VBox layout = new VBox();
+	VBox stratagy = new VBox();
+
+	Board.RuleSet rules;
+	AI.Stratagy blackStratagy;
+	AI.Stratagy whiteStratagy;
+
+	SettingsView(Board board){
+		window = new Stage();
+		rules = board.rules;
+		blackStratagy = board.black.stratagy;
+		whiteStratagy = board.white.stratagy;
+		App.SetUpVBox(layout);
 	}
-	
+
 	public void display(){
-		Stage window = new Stage();
-		
+		//TODO Finish Initiating Settings into interface
+		//Window Init
 		window.initModality(Modality.APPLICATION_MODAL);
 		window.setTitle("Settings");
-		window.setMinWidth(250);
-		window.setMinHeight(80+options.size()*40);
-		
-		BorderPane layout = new BorderPane();
-		
-		Label l = new Label();
-		l.setText("Settings");
-		
+		window.setMinWidth(300);
+		window.setMinHeight(80+layout.getChildren().size()*40);
+
+		//OK Button
 		Button ok = new Button("OK");
 		BorderPane.setAlignment(ok, Pos.CENTER);
-		BorderPane.setMargin(ok, new Insets(10,20,10,20));
+		ok.setAlignment(Pos.CENTER);
 		ok.setOnAction(e -> {
-			System.out.println("OK");
 			window.close();
 		});
-		
-		//Options
-		VBox optionPanel = new VBox();
-		optionPanel.setAlignment(Pos.CENTER);
-		
-		for(String option: options.keySet()){
-			Control control = options.get(option);
-			if(control instanceof Slider){
-				Slider s = (Slider)control;
-				Label sL = new Label("");
-				Label title = new Label(option);
-				sL.textProperty().bind(s.valueProperty().asString("%.0f"));
-				HBox.setMargin(sL, new Insets(10,10,10,10));
-				HBox labelBox = new HBox();
-				labelBox.setAlignment(Pos.CENTER);
-				labelBox.getChildren().addAll(title, s,sL);
-				
-				optionPanel.getChildren().add(labelBox);
-				
-			}
-			else if(control instanceof CheckBox){
-				optionPanel.getChildren().add(control);
-			}
-			else{
-				optionPanel.getChildren().add(control);	
-			}
-		}
-		
-		optionPanel.getChildren().forEach((node) -> {
-			VBox.setMargin(node, new Insets(10, 20, 10, 20));
-			
+
+
+		//Gamemode
+		ObservableList<String> modes = FXCollections.observableArrayList(
+				"Player vs Player", 
+				"Player vs Computer", 
+				"Computer vs Computer");
+		ComboBox<String> gameMode = new ComboBox<>(modes);
+		gameMode.setValue("Player vs Computer");
+		gameMode.valueProperty().addListener(e -> {
+			System.out.println("Changed Gamemode to:" + gameMode.getValue());
+			String m = gameMode.getValue();
+			if(m.equals("Player vs Player"))
+				rules.mode = Board.RuleSet.GameMode.pvp;
+			else if(m.equals("Player vs Computer"))
+				rules.mode = Board.RuleSet.GameMode.pvc;
+			else
+				rules.mode = Board.RuleSet.GameMode.cvc;
+			System.out.println(layout.getChildren().remove(stratagy));
+			initStratagyView(rules.mode);
+			layout.getChildren().add(layout.getChildren().size()-1, stratagy);
 		});
+		initStratagyView(rules.mode);
+		//Rules
+
+		//CastleTCheck
+		CheckBox throughCheck = new CheckBox("Can't Castle Through Check");
+
+		//CastleACheck
+		CheckBox afterCheck = new CheckBox("Can't Castle After Check");
+
+		//Top Player
+		HBox topPlayer = new HBox();
+		Label tpl = new Label("Top Player");
+		ObservableList<String> players = FXCollections.observableArrayList(
+				"White", "Black");
+		ComboBox<String> tp = new ComboBox<>(players);
+		tp.setValue(rules.topPlayer ? "White" : "Black");
+		topPlayer.getChildren().addAll(tpl,tp);
+		App.SetUpHBox(topPlayer);
+		tp.valueProperty().addListener(e -> {
+			if(tp.getValue().equals("Black"))
+				rules.topPlayer = false;
+			else
+				rules.topPlayer = true;
+		});
+
+		HBox timeLimit = new HBox();
+		Label tl1 = new Label("Time Limit");
+		Label tl2 = new Label("m");
+		Label tl3 = new Label("s");
+		ObservableList<String> timeLimitOptions = FXCollections.observableArrayList(
+				"Off", "Total", "Turn");
+		ComboBox<String> tl = new ComboBox<>(timeLimitOptions);
+		String limit = "";
+		switch (rules.timeLimit) {
+		case off:
+			limit = "Off";
+			break;
+		case total:
+			limit = "Total";
+			break;
+		case turn:
+			limit = "Turn";
+			break;
+		default:
+			limit = "Other";
+		}
+		tl.setValue(limit);
+		TextField tlM = new TextField();
+		tlM.setText(""+rules.timeLimit.minutes);
+		TextField tlS = new TextField();
+		tlS.setText(""+rules.timeLimit.seconds);
+		tl.valueProperty().addListener(e -> {
+			String v = tl.getValue();
+			tlS.setDisable(v.equals("Off"));
+			tlM.setDisable(v.equals("Off"));
+
+			if(v.equals("Off"))
+				rules.timeLimit = Board.RuleSet.TimeLimit.off;
+			else if(v.equals("Total"))
+				rules.timeLimit = Board.RuleSet.TimeLimit.total;
+			else if(v.equals("Turn"))
+				rules.timeLimit = Board.RuleSet.TimeLimit.turn;
+			tlS.setText(rules.timeLimit.seconds+"");
+			tlM.setText(rules.timeLimit.minutes+""); 
+		});
+		tlM.textProperty().addListener(e -> {
+			String v = tlM.getText();
+			if(v.matches("\\d+"))
+				rules.timeLimit.minutes = Integer.parseInt(v);
+			else
+				tlM.setText(""+rules.timeLimit.minutes);
+		});
+		tlS.textProperty().addListener(e -> {
+			String v = tlS.getText();
+			if(v.matches("\\d+"))
+				rules.timeLimit.seconds = Integer.parseInt(v);
+			else
+				tlS.setText(""+rules.timeLimit.seconds);
+		});
+		tlS.setDisable(rules.timeLimit == Board.RuleSet.TimeLimit.off);
+		tlM.setDisable(rules.timeLimit == Board.RuleSet.TimeLimit.off);
+		tlS.setMaxWidth(30);
+		tlM.setMaxWidth(30);
+		App.SetUpHBox(timeLimit);
+		App.SetUpHBox(topPlayer);
 		
+		Separator sep = new  Separator(Orientation.HORIZONTAL);
 		
-		layout.setBottom(ok);
-		layout.setCenter(optionPanel);
-		
+		timeLimit.getChildren().addAll(tl1,tl, tlM, tl2, tlS, tl3);
+
+		layout.getChildren().addAll(throughCheck, afterCheck, topPlayer, timeLimit, sep, gameMode, stratagy, ok);
+		App.SetMargins(layout);
+
 		Scene s = new Scene(layout);
 		window.setScene(s);
 		window.showAndWait();
+	}
+
+	private void initStratagyView(Board.RuleSet.GameMode mode){
+		stratagy = new VBox();
+		App.SetUpVBox(stratagy);
+
+		if(mode == Board.RuleSet.GameMode.pvp)
+			return;
+
+		//Player Picker
+		ObservableList<String> players = FXCollections.observableArrayList(
+				"White", "Black");
+		ComboBox<String> cPlayer = new ComboBox<>(players);
+		cPlayer.setValue(rules.computerPlayer ? "White" : "Black");
+		Label l = new Label(Board.RuleSet.GameMode.cvc == mode ? "" : "Computer Player");
+		HBox player = new HBox();
+		player.getChildren().addAll(l, cPlayer);
+		App.SetUpHBox(player);
+		cPlayer.valueProperty().addListener(e -> {
+			rules.computerPlayer = cPlayer.getValue().equals("White");
+		});
+
+		//Depth
+		HBox depth = new HBox();
+		Label dl = new Label("Depth");
+		TextField d = new TextField();
+		d.setText(""+getStrat(cPlayer.getValue()).depth);
+		depth.getChildren().addAll(dl,d);
+		App.SetUpHBox(depth);
+		
+		App.SetUpTextField(d);
+
+		//AlphaBeta
+		CheckBox alphaBeta = new CheckBox("AlphaBeta");
+
+		//Transposition Table
+		CheckBox transpositionTable = new CheckBox("Transposition Table");
+
+		//Killer Heuristic
+		HBox kH = new HBox();
+		CheckBox killerHeuristic = new CheckBox("Killer Heuristic");
+		TextField kHDepth = new TextField();
+		kHDepth.disableProperty().bind(killerHeuristic.selectedProperty().not());
+		kHDepth.setPromptText("Depth");
+		kH.getChildren().addAll(killerHeuristic,kHDepth);
+		App.SetUpHBox(kH);
+		App.SetUpTextField(kHDepth);
+
+		//Iterative Deepening
+		HBox iD = new HBox();
+		CheckBox iterativeDeepening = new CheckBox("Iterative Deepening");
+		TextField iDDepth = new TextField();
+		iDDepth.disableProperty().bind(iterativeDeepening.selectedProperty().not());
+		iDDepth.setPromptText("Depth");
+		iD.getChildren().addAll(iterativeDeepening, iDDepth);
+		App.SetUpHBox(iD);
+		App.SetUpTextField(iDDepth);
+
+		stratagy.getChildren().addAll(player,depth,alphaBeta,transpositionTable, kH, iD);
+
+		cPlayer.valueProperty().addListener(e -> {
+			editListeners(getStrat(cPlayer.getValue()), d, alphaBeta, transpositionTable, killerHeuristic, kHDepth, iterativeDeepening, iDDepth);
+		});
+	}
+	private void editListeners(Stratagy strat, 
+			TextField depth, 
+			CheckBox alphaBeta, 
+			CheckBox transpositionTable, 
+			CheckBox killerHeuristic, 
+			TextField kHDepth, 
+			CheckBox IterativeDeepening, 
+			TextField iDDepth){
+
+		depth.textProperty().addListener(e -> {
+			if(depth.getText().matches("\\d+")){
+				strat.depth = Integer.parseInt(depth.getText());
+			}
+			else{
+				depth.setText(""+strat.depth);
+			}
+		});
+
+		alphaBeta.selectedProperty().addListener(e -> {
+			strat.alphaBeta = alphaBeta.isSelected();
+		});
+
+		transpositionTable.selectedProperty().addListener(e -> {
+			strat.transpositionTable = transpositionTable.isSelected();
+		});
+
+		killerHeuristic.selectedProperty().addListener(e -> {
+			strat.killerHeuristic = killerHeuristic.isSelected();
+		});
+
+		kHDepth.textProperty().addListener(e -> {
+			if(kHDepth.getText().matches("\\d+")){
+				strat.killerHeuristicDepth = Integer.parseInt(kHDepth.getText());
+			}
+			else{
+				kHDepth.setText(""+strat.killerHeuristicDepth);
+			}
+		});
+
+		IterativeDeepening.selectedProperty().addListener(e -> {
+			strat.iterativeDeepening = IterativeDeepening.isSelected();
+		});
+
+		iDDepth.textProperty().addListener(e -> {
+			if(iDDepth.getText().matches("\\d+")){
+				strat.iterativedeepeningDepth = Integer.parseInt(iDDepth.getText());
+			}
+			else{
+				iDDepth.setText(""+strat.killerHeuristicDepth);
+			}
+		});
+
+	}
+	private Stratagy getStrat(String player){
+		if(player.equals("White"))
+			return whiteStratagy;
+		return blackStratagy;
+
 	}
 }

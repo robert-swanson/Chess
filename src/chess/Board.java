@@ -15,27 +15,104 @@ import chess.pieces.Rook;
  * Manages the black and white pieces
  */
 public class Board {
+	public static class RuleSet{
+		enum TimeLimit{
+			off,total,turn;
+			int seconds;
+			int minutes;
+			private TimeLimit() {
+				seconds = 0;
+				minutes = 0;
+			}
+			@Override
+			public String toString() {
+				switch (this) {
+				case off:
+					return "Off";
+				case total:
+					return String.format("Total: %dm %ds",minutes, seconds);
+				case turn:
+					return String.format("Turn: %dm %ds",minutes, seconds);
+				default:
+					return "Other";
+				}
+			}
+		}
+		enum GameMode{
+			pvp, pvc, cvc;
+			@Override
+			public String toString() {
+				switch (this) {
+				case pvp:
+					return "Player vs Player";
+				case pvc:
+					return "Player vs Computer";
+				case cvc:
+					return "Computer vs Computer";
+				default:
+					return "Unkown GameMode";
+				}
+			}
+		}
+		GameMode mode;
+		boolean cantCastleThroughCheck;
+		boolean cantCastleAfterCheck;
+		boolean topPlayer;
+		boolean computerPlayer;
+		
+		TimeLimit timeLimit;
+
+		public RuleSet() {
+			mode = GameMode.pvc;
+			cantCastleThroughCheck = true;
+			cantCastleAfterCheck = false;
+			topPlayer = false;
+			timeLimit = TimeLimit.off;
+			computerPlayer = false;
+		}
+		@Override
+		public String toString() {
+		return String.format("Rules\n"
+				+ "Mode: %s\n"
+				+ "Can't Castle Through Check: %b\n"
+				+ "Can't Castle After Check: %b\n"
+				+ "Top Player: %s\n"
+				+ "Computer Player: %s\n"
+				+ "Time Limit: %s\n", mode, cantCastleThroughCheck, cantCastleAfterCheck, (topPlayer ? "White" : "Black"), (computerPlayer ? "White" : "Black"), timeLimit);
+		}
+	}
 	/**
 	 * Describes a piece on the board
 	 */
 	HashMap<Point, Piece> whitePieces;
 	HashMap<Point, Piece> blackPieces;
-	
+
+	AI black;
+	AI white;
+
+	RuleSet rules;
+
 	public Stack<Move> history;
-	
+
 	public boolean turn;
-	public boolean topPlayer;
 
 	/**
 	 * Initailizes the pieces on the board according to what player is on the top
 	 * @param topPlayer
 	 */
-	public Board(boolean topPlayer) {
+	public Board() {
+		black = new AI(this, false);
+		white = new AI(this, true);
+		rules = new RuleSet();
+		setUpBoard();
+	}
+	
+	public void setUpBoard(){
+		boolean topPlayer = rules.topPlayer;
 		whitePieces  = new HashMap<>();
 		blackPieces  = new HashMap<>();
 		turn = true;
-		this.topPlayer = topPlayer;
-		
+
 		history = new Stack<>();
 
 		//Rooks
@@ -61,7 +138,7 @@ public class Board {
 		whitePieces.put(new Point(5, whiteY), new Bishop(true));
 		whitePieces.put(new Point(6, whiteY), new Knight(true));
 		whitePieces.put(new Point(7, whiteY), new Rook(true));
-		
+
 		blackPieces.put(new Point(0, blackY), new Rook(false));
 		blackPieces.put(new Point(1, blackY), new Knight(false));
 		blackPieces.put(new Point(2, blackY), new Bishop(false));
@@ -76,9 +153,9 @@ public class Board {
 		blackPieces.put(new Point(5, blackY), new Bishop(false));
 		blackPieces.put(new Point(6, blackY), new Knight(false));
 		blackPieces.put(new Point(7, blackY), new Rook(false));
-		
 	}
 	
+
 	/**
 	 * Determines if a move is valid and if so, changes the board accordingly
 	 * @param from
@@ -96,7 +173,7 @@ public class Board {
 		}
 		turn = !turn;
 	}
-	
+
 	/**
 	 * Returns the piece at a specific location, returns null if there is no piece there
 	 * @param p
@@ -111,7 +188,7 @@ public class Board {
 		else
 			return null;
 	}
-	
+
 	public boolean playerHasPieceAt(boolean player, Point pos){
 		return getPiece(pos).isWhite() == player;
 	}
