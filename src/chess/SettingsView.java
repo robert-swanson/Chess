@@ -17,7 +17,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
-
+import sun.security.util.Length;
 
 public class SettingsView{
 	Stage window;
@@ -78,9 +78,17 @@ public class SettingsView{
 
 		//CastleTCheck
 		CheckBox throughCheck = new CheckBox("Can't Castle Through Check");
+		throughCheck.setSelected(rules.cantCastleThroughCheck);
+		throughCheck.selectedProperty().addListener(e -> {
+			rules.cantCastleThroughCheck = throughCheck.isSelected();
+		});
 
 		//CastleACheck
 		CheckBox afterCheck = new CheckBox("Can't Castle After Check");
+		afterCheck.setSelected(rules.cantCastleAfterCheck);
+		afterCheck.selectedProperty().addListener(e -> {
+			rules.cantCastleAfterCheck = afterCheck.isSelected();
+		});
 
 		//Top Player
 		HBox topPlayer = new HBox();
@@ -142,19 +150,19 @@ public class SettingsView{
 			String v = tlM.getText();
 			if(v.matches("\\d+"))
 				rules.timeLimit.minutes = Integer.parseInt(v);
-			else
+			else if(v.length() > 0)
 				tlM.setText(""+rules.timeLimit.minutes);
 		});
 		tlS.textProperty().addListener(e -> {
 			String v = tlS.getText();
 			if(v.matches("\\d+"))
 				rules.timeLimit.seconds = Integer.parseInt(v);
-			else
+			else if(v.length() > 0)
 				tlS.setText(""+rules.timeLimit.seconds);
 		});
 		tlS.setDisable(rules.timeLimit == Board.RuleSet.TimeLimit.off);
 		tlM.setDisable(rules.timeLimit == Board.RuleSet.TimeLimit.off);
-		tlS.setMaxWidth(30);
+		tlS.setMaxWidth(40);
 		tlM.setMaxWidth(30);
 		App.SetUpHBox(timeLimit);
 		App.SetUpHBox(topPlayer);
@@ -189,50 +197,67 @@ public class SettingsView{
 		App.SetUpHBox(player);
 		cPlayer.valueProperty().addListener(e -> {
 			rules.computerPlayer = cPlayer.getValue().equals("White");
+			stratagy.getChildren().clear();
+			stratagy.getChildren().add(player);
+			initAISpecifics(stratagy, cPlayer);
 		});
-
-		//Depth
-		HBox depth = new HBox();
-		Label dl = new Label("Depth");
-		TextField d = new TextField();
-		d.setText(""+getStrat(cPlayer.getValue()).depth);
-		depth.getChildren().addAll(dl,d);
-		App.SetUpHBox(depth);
-		
-		App.SetUpTextField(d);
-
-		//AlphaBeta
-		CheckBox alphaBeta = new CheckBox("AlphaBeta");
-
-		//Transposition Table
-		CheckBox transpositionTable = new CheckBox("Transposition Table");
-
-		//Killer Heuristic
-		HBox kH = new HBox();
-		CheckBox killerHeuristic = new CheckBox("Killer Heuristic");
-		TextField kHDepth = new TextField();
-		kHDepth.disableProperty().bind(killerHeuristic.selectedProperty().not());
-		kHDepth.setPromptText("Depth");
-		kH.getChildren().addAll(killerHeuristic,kHDepth);
-		App.SetUpHBox(kH);
-		App.SetUpTextField(kHDepth);
-
-		//Iterative Deepening
-		HBox iD = new HBox();
-		CheckBox iterativeDeepening = new CheckBox("Iterative Deepening");
-		TextField iDDepth = new TextField();
-		iDDepth.disableProperty().bind(iterativeDeepening.selectedProperty().not());
-		iDDepth.setPromptText("Depth");
-		iD.getChildren().addAll(iterativeDeepening, iDDepth);
-		App.SetUpHBox(iD);
-		App.SetUpTextField(iDDepth);
-
-		stratagy.getChildren().addAll(player,depth,alphaBeta,transpositionTable, kH, iD);
-
-		cPlayer.valueProperty().addListener(e -> {
-			editListeners(getStrat(cPlayer.getValue()), d, alphaBeta, transpositionTable, killerHeuristic, kHDepth, iterativeDeepening, iDDepth);
-		});
+		stratagy.getChildren().add(player);
+		initAISpecifics(stratagy, cPlayer);
 	}
+	
+	private void initAISpecifics(VBox layout, ComboBox<String> cPlayer){
+		//Depth
+				HBox depth = new HBox();
+				Label dl = new Label("Depth");
+				TextField d = new TextField();
+				d.setText(""+getStrat(cPlayer.getValue()).depth);
+				depth.getChildren().addAll(dl,d);
+				App.SetUpHBox(depth);
+				
+				App.SetUpTextField(d);
+
+				//AlphaBeta
+				CheckBox alphaBeta = new CheckBox("AlphaBeta");
+				alphaBeta.setSelected(getStrat(cPlayer.getValue()).alphaBeta);
+
+				//Transposition Table
+				CheckBox transpositionTable = new CheckBox("Transposition Table");
+				transpositionTable.setSelected(getStrat(cPlayer.getValue()).transpositionTable);
+
+
+				//Killer Heuristic
+				HBox kH = new HBox();
+				CheckBox killerHeuristic = new CheckBox("Killer Heuristic");
+				TextField kHDepth = new TextField();
+				kHDepth.disableProperty().bind(killerHeuristic.selectedProperty().not());
+				kHDepth.setPromptText("Depth");
+				kH.getChildren().addAll(killerHeuristic,kHDepth);
+				killerHeuristic.setSelected(getStrat(cPlayer.getValue()).killerHeuristic);
+				kHDepth.setText(getStrat(cPlayer.getValue()).killerHeuristicDepth+"");
+				App.SetUpHBox(kH);
+				App.SetUpTextField(kHDepth);
+
+				//Iterative Deepening
+				HBox iD = new HBox();
+				CheckBox iterativeDeepening = new CheckBox("Iterative Deepening");
+				TextField iDDepth = new TextField();
+				iDDepth.disableProperty().bind(iterativeDeepening.selectedProperty().not());
+				iDDepth.setPromptText("Depth");
+				iD.getChildren().addAll(iterativeDeepening, iDDepth);
+				iterativeDeepening.setSelected(getStrat(cPlayer.getValue()).iterativeDeepening);
+				iDDepth.setText(getStrat(cPlayer.getValue()).iterativedeepeningDepth+"");
+				App.SetUpHBox(iD);
+				App.SetUpTextField(iDDepth);
+				
+				cPlayer.valueProperty().addListener(e -> {
+					editListeners(getStrat(cPlayer.getValue()), d, alphaBeta, transpositionTable, killerHeuristic, kHDepth, iterativeDeepening, iDDepth);
+				});
+				editListeners(getStrat(cPlayer.getValue()), d, alphaBeta, transpositionTable, killerHeuristic, kHDepth, iterativeDeepening, iDDepth);
+
+				stratagy.getChildren().addAll(depth,alphaBeta,transpositionTable, kH, iD);
+	}
+
+	
 	private void editListeners(Stratagy strat, 
 			TextField depth, 
 			CheckBox alphaBeta, 
@@ -246,9 +271,9 @@ public class SettingsView{
 			if(depth.getText().matches("\\d+")){
 				strat.depth = Integer.parseInt(depth.getText());
 			}
-			else{
+			else if(depth.getText().length() > 0)
 				depth.setText(""+strat.depth);
-			}
+			
 		});
 
 		alphaBeta.selectedProperty().addListener(e -> {
@@ -267,9 +292,8 @@ public class SettingsView{
 			if(kHDepth.getText().matches("\\d+")){
 				strat.killerHeuristicDepth = Integer.parseInt(kHDepth.getText());
 			}
-			else{
+			else if(kHDepth.getText().length() > 0)
 				kHDepth.setText(""+strat.killerHeuristicDepth);
-			}
 		});
 
 		IterativeDeepening.selectedProperty().addListener(e -> {
@@ -280,16 +304,16 @@ public class SettingsView{
 			if(iDDepth.getText().matches("\\d+")){
 				strat.iterativedeepeningDepth = Integer.parseInt(iDDepth.getText());
 			}
-			else{
+			else if(iDDepth.getText().length() > 0)
 				iDDepth.setText(""+strat.killerHeuristicDepth);
-			}
 		});
 
 	}
+
 	private Stratagy getStrat(String player){
 		if(player.equals("White"))
 			return whiteStratagy;
 		return blackStratagy;
 
 	}
-}
+	}
