@@ -17,6 +17,7 @@ public class Move
 	boolean capturedKing;
 	
 	boolean firstMove;
+	public boolean castlingMove;
 
 	public Move(Point from, Point to){
 		this(from, to, null);
@@ -28,6 +29,7 @@ public class Move
 		this.board = board;
 		this.piece = board.getPiece(from);
 		this.firstMove = !piece.hasMoved;
+		this.castlingMove = false;
 	}
 	
 	public Piece getCapture(){
@@ -73,6 +75,16 @@ public class Move
 		}
 		if(firstMove)
 			board.getPiece(to).hasMoved = true;
+		if(castlingMove){
+			boolean left = to.x < 3;
+			int y = me == board.rules.topPlayer ? 0 : 7;
+			if(left){
+				board.putPiece(board.removePiece(new Point(0, y), me), new Point(2, y));
+			}
+			else{
+				board.putPiece(board.removePiece(new Point(7, y), me), new Point(4, y));
+			}
+		}
 		
 		return captured;
 	}

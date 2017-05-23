@@ -434,6 +434,17 @@ public class App extends Application {
 						animateCapture(m.to, .5, true);
 				}
 				animateMove(m.from, m.to, .5);
+				if(m.castlingMove){
+					boolean left = m.to.x < 3;
+					boolean me = m.piece.isWhite();
+					int y = me == board.rules.topPlayer ? 0 : 7;
+					if(left){
+						animateMove(new Point(0, y), new Point(2, y), .5);
+					}
+					else{
+						animateMove(new Point(7, y), new Point(4, y), .5);
+					}
+				}
 				message.set(String.format("It is %s's turn", (board.turn ? "White" : "Black")));
 			}
 			else

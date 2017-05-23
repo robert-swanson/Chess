@@ -29,6 +29,7 @@ public class King extends Piece
 			if(to.isInBoard())
 				moves.add(new Move(pos, to, board));
 		}
+		board.addCastleMoves(moves, isWhite());
 		board.setCaptures(moves);
 		return moves;
 	}

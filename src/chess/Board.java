@@ -254,6 +254,38 @@ public class Board {
 			}
 		}
 	}
+	
+	public void addCastleMoves(ArrayList<Move> moves, boolean color){
+		int y = rules.topPlayer==color ? 0 : 7;
+		King king = getKing(color);
+		if(king.hasMoved)
+			return;
+		
+		boolean validL = true;
+		for(int x = 2; x > 0 && validL; x--){
+			if(getWhoOccupiesAt(new Point(x, y)) != null)
+				validL = false;
+		}
+		
+		boolean validR = true;
+		for(int x = 4; x < 7 && validR; x++){
+			if(getWhoOccupiesAt(new Point(x, y)) != null)
+				validR = false;
+		}
+		
+		Piece left = getPiece(new Point(7, y), color);
+		Piece right = getPiece(new Point(7, y), color);
+		if(validL && left != null && left instanceof Rook && !left.hasMoved){
+			Move l = new Move(new Point(3, y), new Point(1, y), this);
+			l.castlingMove = true;
+			moves.add(l);
+		}
+		if(validR && right != null && right instanceof Rook && !right.hasMoved){
+			Move r = new Move(new Point(3, y), new Point(5, y), this);
+			r.castlingMove = true;
+			moves.add(r);
+		}
+	}
 	public void print(){
 		for(int y = 0; y < 8; y++){
 			for(int x = 0; x < 8; x++){
