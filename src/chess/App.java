@@ -322,12 +322,11 @@ public class App extends Application {
 		capture.play();
 	}
 	private void unCapture(ImageView piece, double duration, Point pos){
-		resize();
 		double[] gp = getLayoutCoord(pos);
-		Line path = new Line(1,1 , gp[0], gp[1]);
+		Line path = new Line(1, 1 , gp[0], gp[1]);
 		PathTransition move = new PathTransition();
 		move.setPath(path);
-		move.setDuration(Duration.ZERO);
+		move.setDuration(Duration.millis(10));
 		move.setNode(piece);
 
 		
@@ -339,8 +338,7 @@ public class App extends Application {
 		
 		SequentialTransition uncap = new SequentialTransition(move, fade);
 		uncap.play();
-		
-		
+
 	}
 	/**
 	 * Gets the coordinate relative to the middle of the layout: (0,0) = Middle of window
@@ -397,12 +395,14 @@ public class App extends Application {
 		else
 			clicked = p;
 		
-		if(selected == null && playerHasPiece(clicked, board.turn)){ //Initial selection
+		if(selected == null){ //Initial selection
+			if(playerHasPiece(clicked, board.turn))
 				select(clicked);	
 		}
 		else{
 			if(!playerHasPiece(clicked, board.turn)){	//Move
-				move(new Move(selected, clicked, board));
+				Move m = new Move(selected, clicked, board);
+				move(m);
 				deSelect();
 			}
 			else{										//Reselected
@@ -421,20 +421,25 @@ public class App extends Application {
 			message.set("You cannot play for the computer");
 			return;
 		}
-		else if(board.getPiece(m.from).getMoves(board, m.from).contains(m)){
-			if(board.move(m)){
-				if (m.piece.isWhite()){
-					animateCapture(m.to, .5, false);
+		else{
+			ArrayList<Move> moves = board.getPiece(m.from).getMoves(board, m.from);
+			int i = moves.indexOf(m);
+			if(i >= 0){
+				m = moves.get(i);
+				if(board.move(m)){	//Moves returns if capture piece
+					if (m.piece.isWhite()){
+						animateCapture(m.to, .5, false);
+					}
+					else
+						animateCapture(m.to, .5, true);
 				}
-				else
-					animateCapture(m.to, .5, true);
-
+				animateMove(m.from, m.to, .5);
+				message.set(String.format("It is %s's turn", (board.turn ? "White" : "Black")));
 			}
-			animateMove(m.from, m.to, .5);
-			message.set(String.format("It is %s's turn", (board.turn ? "White" : "Black")));
+			else
+				message.set("Invalid Move");
+			board.print();
 		}
-		else
-			message.set("Invalid Move");
 	}
 	
 	/**
@@ -476,7 +481,8 @@ public class App extends Application {
 		if(board.history.isEmpty())
 			System.out.println("Cant Undo");
 		else{
-			Move m = board.undo();
+			Move m = board.history.peek();
+			board.undo();
 			animateMove(m.to, m.from, .5);
 			if(m.getCapture() != null){
 				Piece piece = m.getCapture();
@@ -487,8 +493,10 @@ public class App extends Application {
 					whiteIcons.put(m.to, icon);
 				else
 					blackIcons.put(m.to, icon);
+				icon.setFitWidth(step);
 				unCapture(icon, .5, m.to);
 			}
+			board.print();
 		}
 	}
 	

@@ -7,9 +7,7 @@ import chess.Move;
 import chess.Point;
 
 public class King extends Piece
-{
-	private boolean hasMoved;
-	
+{	
 	public King(boolean c)
 	{
 		super(100, c);

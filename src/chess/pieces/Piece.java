@@ -10,11 +10,13 @@ public abstract class Piece
 {
 	protected int value;
 	protected boolean color;
+	public boolean hasMoved;
 
 	public Piece(int v, boolean c)
 	{
 		value = v;
 		color = c;
+		hasMoved = false;
 	}
 
 	public boolean isWhite()
@@ -26,6 +28,7 @@ public abstract class Piece
 	{
 		return value;
 	}
+	
 	protected void checkOptions(ArrayList<Move> moves, Board board){ //Removes moves where own piece already occupies
 		for(Move move: moves){
 			Boolean from = board.getWhoOccupiesAt(move.from);

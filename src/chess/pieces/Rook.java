@@ -8,7 +8,6 @@ import chess.Point;
 
 public class Rook extends Piece
 {
-	private boolean hasMoved;
 
 	public Rook(boolean c)
 	{

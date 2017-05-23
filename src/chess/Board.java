@@ -153,7 +153,6 @@ public class Board {
 		blackPieces.put(new Point(5, blackY), new Bishop(false));
 		blackPieces.put(new Point(6, blackY), new Knight(false));
 		blackPieces.put(new Point(7, blackY), new Rook(false));
-		System.out.println(getPiece(new Point(3,7)));
 	}
 	
 
@@ -193,11 +192,23 @@ public class Board {
 		else
 			return null;
 	}
-	public void putPiece(Piece piece, Point pos, boolean color){
-		if(color)
+	public void putPiece(Piece piece, Point pos){
+		if(piece.isWhite())
 			whitePieces.put(pos, piece);
 		else
 			blackPieces.put(pos, piece);
+	}
+	public Piece getPiece(Point p, boolean color){
+		if(color)
+			return whitePieces.get(p);
+		else
+			return blackPieces.get(p);
+	}
+	public Piece removePiece(Point p, boolean color){
+		if(color)
+			return whitePieces.remove(p);
+		else
+			return blackPieces.remove(p);
 	}
 	public Boolean getWhoOccupiesAt(Point p){
 		if(whitePieces.containsKey(p))
@@ -242,5 +253,20 @@ public class Board {
 				
 			}
 		}
+	}
+	public void print(){
+		for(int y = 0; y < 8; y++){
+			for(int x = 0; x < 8; x++){
+				Piece p = getPiece(new Point(x, y));
+				if(p == null)
+					System.out.print("•");
+				else if(p.isWhite())
+					System.out.print(Character.toUpperCase(p.toString().charAt(0)));
+				else
+					System.out.print(Character.toLowerCase(p.toString().charAt(0)));
+			}
+			System.out.println();
+		}
+		System.out.println();
 	}
 }

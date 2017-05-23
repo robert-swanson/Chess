@@ -8,8 +8,6 @@ import chess.Point;
 
 public class Pawn extends Piece
 {
-	private boolean hasMoved;
-
 	public Pawn(boolean c)
 	{
 		super(1, c);
@@ -44,7 +42,7 @@ public class Pawn extends Piece
 		Boolean forwardO = board.getWhoOccupiesAt(forward);
 		
 		if(!hasMoved && jumpO == null)
-			moves.add(new Move(pos, jump, board, true));
+			moves.add(new Move(pos, jump, board));
 		if(capLeftO != null && capLeftO == !this.color)
 			moves.add(new Move(pos, capLeft,board));
 		if(capRightO != null && capRightO == !this.color)

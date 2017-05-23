@@ -16,14 +16,18 @@ public class Move
 	private Piece capturedPiece;
 	boolean capturedKing;
 	
-	boolean specialMove;
+	boolean firstMove;
 
 	public Move(Point from, Point to){
 		this(from, to, null);
 	}
 	public Move(Point from, Point to, Board board)
 	{
-		this(from, to, board, false);
+		this.from = from;
+		this.to = to;
+		this.board = board;
+		this.piece = board.getPiece(from);
+		this.firstMove = !piece.hasMoved;
 	}
 	
 	public Piece getCapture(){
@@ -35,16 +39,6 @@ public class Move
 			capturedKing = true;
 			System.out.println(this);
 		}
-	}
-	
-	public Move(Point from, Point to, Board board, boolean specialMove)
-	{
-		this.from = from;
-		this.to = to;
-		this.board = board;
-		this.specialMove = specialMove;
-		this.piece = board.getPiece(from);
-		
 	}
 
 	/**
@@ -67,22 +61,19 @@ public class Move
 	 */
 	public boolean doMove()
 	{
-		boolean captured = false;
-		if(piece.isWhite() && board.whitePieces.containsKey(from)){
-			board.whitePieces.put(to, board.whitePieces.remove(from));
-			if(board.blackPieces.containsKey(to)){
-				board.blackPieces.remove(to);
-				captured = true;
-			}
+		Boolean wFrom = board.getWhoOccupiesAt(from);
+		Boolean wTo = board.getWhoOccupiesAt(to);
+		boolean captured = wTo != null && wTo == !piece.isWhite();
+		boolean me = piece.isWhite();
+		if(wFrom != null && wFrom == me && (wTo == null || wTo == !me)){
+			board.putPiece(board.removePiece(from, me), to);
+			if(captured)
+				board.removePiece(to, !me);
+			board.turn = !board.turn;
 		}
-		else if(board.blackPieces.containsKey(from)){
-			board.blackPieces.put(to, board.blackPieces.remove(from));
-			if(board.whitePieces.containsKey(to)){
-				board.whitePieces.remove(to);
-				captured = true;
-			}
-		}
-		board.turn = !board.turn;
+		if(firstMove)
+			board.getPiece(to).hasMoved = true;
+		
 		return captured;
 	}
 
@@ -95,11 +86,13 @@ public class Move
 		if(me && board.whitePieces.containsKey(to)){
 			board.whitePieces.put(from, board.whitePieces.remove(to));
 		}
-		else if(!me && board.blackPieces.containsKey(from)){
-			board.blackPieces.put(from, board.blackPieces.remove(from));
+		else if(!me && board.blackPieces.containsKey(to)){
+			board.blackPieces.put(from, board.blackPieces.remove(to));
 		}
 		if(capturedPiece != null)
-			board.putPiece(capturedPiece, to, !me);
+			board.putPiece(capturedPiece, to);
+		if(firstMove)
+			board.getPiece(from).hasMoved = false;
 		return capturedPiece;
 	}
 
