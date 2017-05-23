@@ -51,6 +51,8 @@ public class Pawn extends Piece
 			moves.add(new Move(pos, capRight, board));
 		if(forwardO == null)
 			moves.add(new Move(pos, forward,board));
+		
+		board.setCaptures(moves);
 		return moves;
 	}
 }

@@ -10,6 +10,7 @@ import javafx.animation.FadeTransition;
 import javafx.animation.ParallelTransition;
 import javafx.animation.PathTransition;
 import javafx.animation.RotateTransition;
+import javafx.animation.SequentialTransition;
 import javafx.application.Application;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.DoubleProperty;
@@ -94,10 +95,7 @@ public class App extends Application {
 		
 		Button undo = new Button("Undo");
 		undo.setOnAction(e -> {
-			if(board.history.isEmpty())
-				System.out.println("Cant Undo");
-			else
-				board.history.pop().undoMove();
+			undo();
 		});
 		
 		Button sButton = new Button("Settings");
@@ -224,7 +222,6 @@ public class App extends Application {
 		String color = (player ? "White_" : "Black_") + piece.toString() + ".png";
 		ImageView icon = new ImageView(getClass().getResource(color).toString());
 		icon.setPreserveRatio(true);
-		icon.setFitWidth(step);
 		icon.setVisible(false);
 		icon.setOnMouseClicked(e-> click(0,0,p));
 		return icon;
@@ -309,8 +306,6 @@ public class App extends Application {
 			icon = whiteIcons.get(pos);
 		else
 			icon = blackIcons.get(pos);
-		
-		System.out.println(duration);
 		RotateTransition rotate = new RotateTransition(Duration.seconds(duration),icon);
 		rotate.setByAngle(200);
 		FadeTransition fade = new FadeTransition(Duration.seconds(duration), icon);
@@ -325,6 +320,27 @@ public class App extends Application {
 			layout.getChildren().remove(icon);
 		});
 		capture.play();
+	}
+	private void unCapture(ImageView piece, double duration, Point pos){
+		resize();
+		double[] gp = getLayoutCoord(pos);
+		Line path = new Line(1,1 , gp[0], gp[1]);
+		PathTransition move = new PathTransition();
+		move.setPath(path);
+		move.setDuration(Duration.ZERO);
+		move.setNode(piece);
+
+		
+		FadeTransition fade = new FadeTransition();
+		fade.setNode(piece);
+		fade.setFromValue(0.0);
+		fade.setToValue(1.0);
+		fade.setDuration(Duration.seconds(duration));
+		
+		SequentialTransition uncap = new SequentialTransition(move, fade);
+		uncap.play();
+		
+		
 	}
 	/**
 	 * Gets the coordinate relative to the middle of the layout: (0,0) = Middle of window
@@ -451,10 +467,29 @@ public class App extends Application {
 		deSelect();
 		board.setUpBoard();
 		initiatePieces();
+		resize();
 		setupAnimation(.5,0);
-		System.out.println(board.rules);
-		System.out.println("White " + board.white.stratagy);
-		System.out.println("Black" + board.black.stratagy);
+
+	}
+	
+	private void undo(){
+		if(board.history.isEmpty())
+			System.out.println("Cant Undo");
+		else{
+			Move m = board.undo();
+			animateMove(m.to, m.from, .5);
+			if(m.getCapture() != null){
+				Piece piece = m.getCapture();
+				ImageView icon = initPiece(m.to, piece.isWhite(), piece);
+				icon.setVisible(true);
+				layout.getChildren().add(icon);
+				if(piece.isWhite())
+					whiteIcons.put(m.to, icon);
+				else
+					blackIcons.put(m.to, icon);
+				unCapture(icon, .5, m.to);
+			}
+		}
 	}
 	
 	/**

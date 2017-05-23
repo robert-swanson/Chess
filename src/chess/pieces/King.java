@@ -15,6 +15,10 @@ public class King extends Piece
 		super(100, c);
 		hasMoved = false;
 	}
+	
+	public boolean getHasMoved(){
+		return hasMoved;
+	}
 
 	//Still to do
 	public ArrayList<Move> getMoves(Board board, Point pos)
@@ -24,11 +28,10 @@ public class King extends Piece
 		for (int i = 0; i < 8; i++)
 		{
 			Point to = pos.getNewPoint(1, i);
-			if(to.isInBoard() /* && isSafe(to)*/)
-			{
+			if(to.isInBoard())
 				moves.add(new Move(pos, to, board));
-			}
 		}
+		board.setCaptures(moves);
 		return moves;
 	}
 }

@@ -132,7 +132,7 @@ public class Board {
 			whitePieces.put(new Point(4, whiteY), new King(true));
 		}
 		else{
-			whitePieces.put(new Point(3, whiteY), new Bishop(true));
+			whitePieces.put(new Point(3, whiteY), new King(true));
 			whitePieces.put(new Point(4, whiteY), new Queen(true));
 		}
 		whitePieces.put(new Point(5, whiteY), new Bishop(true));
@@ -153,6 +153,7 @@ public class Board {
 		blackPieces.put(new Point(5, blackY), new Bishop(false));
 		blackPieces.put(new Point(6, blackY), new Knight(false));
 		blackPieces.put(new Point(7, blackY), new Rook(false));
+		System.out.println(getPiece(new Point(3,7)));
 	}
 	
 
@@ -164,26 +165,18 @@ public class Board {
 	 * The ending position of the piece
 	 */
 	public boolean move(Move m){
-		//TODO move piece on board
-		boolean captured = false;
-		if(m.piece.isWhite() && whitePieces.containsKey(m.from)){
-			whitePieces.put(m.to, whitePieces.remove(m.from));
-			if(blackPieces.containsKey(m.to)){
-				blackPieces.remove(m.to);
-				captured = true;
-				System.out.println("White captured");
-			}
-		}
-		else if(blackPieces.containsKey(m.from)){
-			blackPieces.put(m.to, blackPieces.remove(m.from));
-			if(whitePieces.containsKey(m.to)){
-				whitePieces.remove(m.to);
-				captured = true;
-				System.out.println("Black captured");
-			}
-		}
+		ArrayList<Move> moves = new ArrayList<>();
+		moves.add(m);
+		setCaptures(moves);
+		history.push(m);
+		return m.doMove();
+	}
+	
+	public Move undo(){
+		Move rv = history.pop();
+		rv.undoMove();
 		turn = !turn;
-		return captured;
+		return rv;
 	}
 
 	/**
@@ -200,6 +193,12 @@ public class Board {
 		else
 			return null;
 	}
+	public void putPiece(Piece piece, Point pos, boolean color){
+		if(color)
+			whitePieces.put(pos, piece);
+		else
+			blackPieces.put(pos, piece);
+	}
 	public Boolean getWhoOccupiesAt(Point p){
 		if(whitePieces.containsKey(p))
 			return true;
@@ -208,8 +207,40 @@ public class Board {
 		else
 			return null;
 	}
+	public King getKing(boolean color){
+		if(color){
+			for(Piece p: whitePieces.values())
+				if(p instanceof King)
+					return (King)p;
+		}
+		else{
+			for(Piece p: blackPieces.values())
+				if(p instanceof King)
+					return (King)p;
+		}
+		System.out.println("No King for player " + color);
+		return new King(false);
+	}
+	public void setCaptures(ArrayList<Move> moves){
+		for(Move m: moves){
+			Boolean me = getWhoOccupiesAt(m.from);
+			Boolean to = getWhoOccupiesAt(m.to);
+			if(to != null && to == !me)
+				m.setCapture(getPiece(m.to));
+		}
+	}
 
 	public boolean playerHasPieceAt(boolean player, Point pos){
 		return getPiece(pos).isWhite() == player;
+	}
+	
+	public void removeCheckMoves(ArrayList<Move> moves){
+		if(moves.size() == 0) return;
+		boolean me = getWhoOccupiesAt(moves.get(0).from);
+		if(me){
+			for(Move initial: moves){
+				
+			}
+		}
 	}
 }

@@ -1,5 +1,6 @@
 package chess;
 
+import chess.pieces.King;
 import chess.pieces.Piece;
 
 /**
@@ -12,8 +13,8 @@ public class Move
 	public Point from;
 	public Point to;
 
-	Piece capturedPiece;
-	boolean checkMated;
+	private Piece capturedPiece;
+	boolean capturedKing;
 	
 	boolean specialMove;
 
@@ -25,7 +26,17 @@ public class Move
 		this(from, to, board, false);
 	}
 	
-	//Might need to add the piece;
+	public Piece getCapture(){
+		return capturedPiece;
+	}
+	public void setCapture(Piece cap){
+		capturedPiece = cap;
+		if(cap instanceof King){
+			capturedKing = true;
+			System.out.println(this);
+		}
+	}
+	
 	public Move(Point from, Point to, Board board, boolean specialMove)
 	{
 		this.from = from;
@@ -33,6 +44,7 @@ public class Move
 		this.board = board;
 		this.specialMove = specialMove;
 		this.piece = board.getPiece(from);
+		
 	}
 
 	/**
@@ -53,17 +65,42 @@ public class Move
 	/**
 	 * Does the move to the board
 	 */
-	public void doMove()
+	public boolean doMove()
 	{
-		// TODO doMove
+		boolean captured = false;
+		if(piece.isWhite() && board.whitePieces.containsKey(from)){
+			board.whitePieces.put(to, board.whitePieces.remove(from));
+			if(board.blackPieces.containsKey(to)){
+				board.blackPieces.remove(to);
+				captured = true;
+			}
+		}
+		else if(board.blackPieces.containsKey(from)){
+			board.blackPieces.put(to, board.blackPieces.remove(from));
+			if(board.whitePieces.containsKey(to)){
+				board.whitePieces.remove(to);
+				captured = true;
+			}
+		}
+		board.turn = !board.turn;
+		return captured;
 	}
 
 	/**
 	 * Undoes the move to the board, and replaced captured pieces
 	 */
-	public void undoMove()
+	public Piece undoMove()
 	{
-		// TODO undoMove
+		boolean me = piece.isWhite();
+		if(me && board.whitePieces.containsKey(to)){
+			board.whitePieces.put(from, board.whitePieces.remove(to));
+		}
+		else if(!me && board.blackPieces.containsKey(from)){
+			board.blackPieces.put(from, board.blackPieces.remove(from));
+		}
+		if(capturedPiece != null)
+			board.putPiece(capturedPiece, to, !me);
+		return capturedPiece;
 	}
 
 	@Override
@@ -73,10 +110,6 @@ public class Move
 		if (capturedPiece != null)
 		{
 			rv += String.format(", Captured %s", capturedPiece.toString());
-		}
-		if (checkMated)
-		{
-			rv += ", checkmated opponent";
 		}
 		return rv;
 	}
