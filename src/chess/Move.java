@@ -1,5 +1,7 @@
 package chess;
 
+import java.util.ArrayList;
+
 import chess.pieces.King;
 import chess.pieces.Piece;
 
@@ -12,9 +14,11 @@ public class Move
 	Piece piece;
 	public Point from;
 	public Point to;
+	public boolean me;
 
 	private Piece capturedPiece;
 	boolean capturedKing;
+	Boolean checks;
 	
 	boolean firstMove;
 	public boolean castlingMove;
@@ -30,6 +34,7 @@ public class Move
 		this.piece = board.getPiece(from);
 		this.firstMove = !piece.hasMoved;
 		this.castlingMove = false;
+		me = piece.isWhite();
 	}
 	
 	public Piece getCapture(){
@@ -39,7 +44,6 @@ public class Move
 		capturedPiece = cap;
 		if(cap instanceof King){
 			capturedKing = true;
-			System.out.println(this);
 		}
 	}
 
@@ -63,15 +67,14 @@ public class Move
 	 */
 	public boolean doMove()
 	{
+		board.turn = !board.turn;
 		Boolean wFrom = board.getWhoOccupiesAt(from);
 		Boolean wTo = board.getWhoOccupiesAt(to);
-		boolean captured = wTo != null && wTo == !piece.isWhite();
-		boolean me = piece.isWhite();
+		boolean captured = wTo != null && wTo == !me;
 		if(wFrom != null && wFrom == me && (wTo == null || wTo == !me)){
 			board.putPiece(board.removePiece(from, me), to);
 			if(captured)
 				board.removePiece(to, !me);
-			board.turn = !board.turn;
 		}
 		if(firstMove)
 			board.getPiece(to).hasMoved = true;
@@ -85,7 +88,9 @@ public class Move
 				board.putPiece(board.removePiece(new Point(7, y), me), new Point(4, y));
 			}
 		}
-		
+		if(checks != null && checks && board.rules.cantCastleAfterCheck){
+			board.getKing(!me).hasMoved = true;
+		}
 		return captured;
 	}
 
@@ -94,7 +99,7 @@ public class Move
 	 */
 	public Piece undoMove()
 	{
-		boolean me = piece.isWhite();
+		board.turn = !board.turn;
 		if(me && board.whitePieces.containsKey(to)){
 			board.whitePieces.put(from, board.whitePieces.remove(to));
 		}
@@ -105,7 +110,42 @@ public class Move
 			board.putPiece(capturedPiece, to);
 		if(firstMove)
 			board.getPiece(from).hasMoved = false;
+		if(checks != null && checks)
+			board.getKing(!me).hasMoved = false;
+		if(castlingMove){
+			boolean left = to.x < 4;
+			int y = me == board.rules.topPlayer ? 0 : 7;
+			if(left)
+				board.putPiece(board.removePiece(new Point(2, y), me), new Point(0, y));
+			else
+				board.putPiece(board.removePiece(new Point(4, y), me), new Point(7, y));
+
+		}
 		return capturedPiece;
+	}
+	
+	public boolean putsPlayerInCheck(boolean color){
+		doMove();
+		ArrayList<Point> points = new ArrayList<>();
+		if(color)
+			points.addAll(board.blackPieces.keySet());
+		else
+			points.addAll(board.whitePieces.keySet());
+		for(Point p: points){
+			Piece piece = board.getPiece(p);
+			for(Move move: piece.getMoves(board, p)){
+				if(move.capturedKing){
+					undoMove();
+					if(board.rules.cantCastleAfterCheck && !board.getKing(!me).hasMoved)
+						checks = true;
+					return true;
+				}
+					
+			}
+		}
+		undoMove();
+		checks = false;
+		return false;
 	}
 
 	@Override

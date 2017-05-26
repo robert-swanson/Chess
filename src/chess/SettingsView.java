@@ -60,7 +60,7 @@ public class SettingsView{
 				"Player vs Computer", 
 				"Computer vs Computer");
 		ComboBox<String> gameMode = new ComboBox<>(modes);
-		gameMode.setValue("Player vs Computer");
+		gameMode.setValue(rules.mode.toString());
 		gameMode.valueProperty().addListener(e -> {
 			System.out.println("Changed Gamemode to:" + gameMode.getValue());
 			String m = gameMode.getValue();

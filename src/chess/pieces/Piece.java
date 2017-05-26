@@ -29,14 +29,14 @@ public abstract class Piece
 		return value;
 	}
 	
-	protected void checkOptions(ArrayList<Move> moves, Board board){ //Removes moves where own piece already occupies
+/*	protected void checkOptions(ArrayList<Move> moves, Board board){ //Removes moves where own piece already occupies
 		for(Move move: moves){
 			Boolean from = board.getWhoOccupiesAt(move.from);
 			Boolean to = board.getWhoOccupiesAt(move.to);
 			if(from.equals(null) || from.equals(to))
 				moves.remove(move);
 		}
-	}
+	}	*/
 	@Override
 	public String toString() {
 		if(this instanceof Bishop)
@@ -53,6 +53,14 @@ public abstract class Piece
 			return "Rook";
 		else
 			return "Unkown Piece";
+	}
+	public char toChar(){
+		if(this instanceof Knight)
+			return color ? 'N' : 'n';
+		if(color)
+			return (Character.toUpperCase(toString().charAt(0)));
+		else
+			return (Character.toLowerCase(toString().charAt(0)));
 	}
 	@Override
 	public boolean equals(Object obj) {

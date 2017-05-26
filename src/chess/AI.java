@@ -1,7 +1,9 @@
 package chess;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 
+import chess.pieces.Piece;
 import javafx.beans.property.SimpleIntegerProperty;
 
 /**
@@ -106,6 +108,52 @@ public class AI {
 	private double score(){
 		return 0;
 		//TODO Make score
+	}
+	
+	public static void updateGameState(Board board){
+		boolean turn = board.turn;
+		if(turn){
+			ArrayList<Move> moves = new ArrayList<>();
+			for(Point p : board.whitePieces.keySet()){
+				Piece piece = board.getPiece(p, true);
+				moves.addAll(piece.getMoves(board, p));
+				board.removeCheckMoves(moves);
+				if(moves.size() > 0)
+					break;
+			}
+			if(moves.size() == 0){
+				System.out.println("Game Over");
+				if(board.history.peek().putsPlayerInCheck(turn))
+					board.gameState = Board.State.BLACKWON;
+				else
+					board.gameState = Board.State.STALEMATE;
+			}
+			else
+				board.gameState = Board.State.INPROGRESS;
+		}
+		else{
+			ArrayList<Move> moves = new ArrayList<>();
+			int s = board.blackPieces.size();
+			Point[] points = board.blackPieces.keySet().toArray(new Point[s]);
+			for(Point p: points){
+				ArrayList<Move> piecesMoves = new ArrayList<>();
+				Piece piece = board.getPiece(p, false);
+				piecesMoves.addAll(piece.getMoves(board, p));
+				board.removeCheckMoves(piecesMoves);
+				moves.addAll(piecesMoves);
+				if(moves.size() > 0)
+					break;
+			}
+			if(moves.size() == 0){
+				System.out.println("Game Over");
+				if(board.history.peek().putsPlayerInCheck(turn))
+					board.gameState = Board.State.WHITEWON;
+				else
+					board.gameState = Board.State.STALEMATE;
+			}
+			else
+				board.gameState = Board.State.INPROGRESS;
+		}
 	}
 	
 }

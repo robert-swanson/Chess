@@ -36,6 +36,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -50,7 +51,29 @@ import javafx.util.Duration;
  * @author robertswanson
  */
 public class App extends Application {
+	public class Messages{
+		public GridPane gPane;
+		public Board.State gameState;
+		
+		public Messages(GridPane gP) {
+			gPane = gP;
+		}
+		public void invalidMove(String s){
+			
+		}
+		public void invalidMove(){
+			invalidMove("");
+		}
+		public void notYourTurn(){
+			
+		}
+		public void gameOver(){
+			
+		}
+	}
+	
 	Stage window;
+	Messages messages;
 	HashMap<Point, ImageView> whiteIcons;
 	HashMap<Point, ImageView> blackIcons;
 
@@ -60,7 +83,6 @@ public class App extends Application {
 	Board board;
 	
 	Point selected;
-	StringProperty message;
 	
 	public static void main(String[] args){
 		launch(args);
@@ -73,7 +95,7 @@ public class App extends Application {
 		blackIcons = new HashMap<>();
 
 //Graphics
-		message = new SimpleStringProperty();
+		messages = new Messages(new GridPane());
 		
 		window = primaryStage;
 		window.setTitle("Chess");
@@ -93,6 +115,16 @@ public class App extends Application {
 		Button reset = new Button("Restart");
 		reset.setOnAction(e -> reset());
 		
+		Button sync = new Button("Syncronize");
+		sync.setOnAction(e -> {
+			initiatePieces();
+			resize();
+			setupAnimation(.0001, 0);
+		});
+		
+		Button print = new Button("Print");
+		print.setOnAction(e -> board.print());
+		
 		Button undo = new Button("Undo");
 		undo.setOnAction(e -> {
 			undo();
@@ -105,17 +137,8 @@ public class App extends Application {
 			reset();
 		});
 		
-		buttons.getChildren().addAll(reset, undo, sButton);
+		buttons.getChildren().addAll(reset, sync, print, undo, sButton);
 
-		//Message
-		Label mess = new Label();
-		mess.textProperty().bind(message);
-		mess.setPadding(new Insets(10,0,10,0));
-		mess.setFont(new Font("Arial", 24));
-		
-		HBox messageBox = new HBox();
-		messageBox.setAlignment(Pos.CENTER);
-		messageBox.getChildren().add(mess);
 		
 		//Stack Pane
 		layout = new StackPane();
@@ -136,7 +159,7 @@ public class App extends Application {
 		BorderPane masterLayout = new BorderPane();
 		masterLayout.setCenter(layout);
 		masterLayout.setBottom(buttons);
-		masterLayout.setTop(messageBox);
+		masterLayout.setTop(messages.gPane);
 		
 		Scene board = new Scene(masterLayout);
 		board.setFill(Color.LIGHTGREY);
@@ -396,7 +419,7 @@ public class App extends Application {
 			clicked = p;
 		
 		if(selected == null){ //Initial selection
-			if(playerHasPiece(clicked, board.turn))
+			if(!board.getIsAIPlayer() && playerHasPiece(clicked, board.turn))
 				select(clicked);	
 		}
 		else{
@@ -413,21 +436,28 @@ public class App extends Application {
 	}
 	
 	private void move(Move m){
-		if(!playerHasPiece(m.from, board.turn)){
-			message.set("It's not your turn");
+		if(board.gameState != Board.State.INPROGRESS){
+			messages.gameOver();
 			return;
 		}
-		else if(board.rules.mode == GameMode.pvc && board.rules.topPlayer == board.turn){
-			message.set("You cannot play for the computer");
+		if(!playerHasPiece(m.from, board.turn)){
+			messages.notYourTurn();
+			return;
+		}
+		else if(board.getIsAIPlayer()){
+			messages.notYourTurn();
 			return;
 		}
 		else{
 			ArrayList<Move> moves = board.getPiece(m.from).getMoves(board, m.from);
 			int i = moves.indexOf(m);
-			if(i >= 0){
+			if(i >= 0 && !moves.get(i).putsPlayerInCheck(m.me)){
 				m = moves.get(i);
+				if(m.putsPlayerInCheck(!m.me)){
+					System.out.println("Check");
+				}
 				if(board.move(m)){	//Moves returns if capture piece
-					if (m.piece.isWhite()){
+					if (m.me){
 						animateCapture(m.to, .5, false);
 					}
 					else
@@ -436,8 +466,7 @@ public class App extends Application {
 				animateMove(m.from, m.to, .5);
 				if(m.castlingMove){
 					boolean left = m.to.x < 3;
-					boolean me = m.piece.isWhite();
-					int y = me == board.rules.topPlayer ? 0 : 7;
+					int y = m.me == board.rules.topPlayer ? 0 : 7;
 					if(left){
 						animateMove(new Point(0, y), new Point(2, y), .5);
 					}
@@ -445,11 +474,16 @@ public class App extends Application {
 						animateMove(new Point(7, y), new Point(4, y), .5);
 					}
 				}
-				message.set(String.format("It is %s's turn", (board.turn ? "White" : "Black")));
+				messages.setTurn(board.turn);
+				AIMove aimove = new AIMove(board);
+				if(board.gameState != Board.State.INPROGRESS){
+					messages.gameOver();
+				}
+				else
+					aimove.start();
 			}
 			else
-				message.set("Invalid Move");
-			board.print();
+				messages.invalidMove();
 		}
 	}
 	
@@ -507,6 +541,14 @@ public class App extends Application {
 				icon.setFitWidth(step);
 				unCapture(icon, .5, m.to);
 			}
+			if(m.castlingMove){
+				boolean left = m.to.x < 4;
+				int y = m.me == board.rules.topPlayer ? 0 : 7;
+				if(left)
+					animateMove(new Point(2, y), new Point(0, y), .5);
+				else
+					animateMove(new Point(4, y), new Point(7, y), .5);
+			}
 			board.print();
 		}
 	}
@@ -526,6 +568,10 @@ public class App extends Application {
 		}
 		return board.blackPieces.containsKey(p);
 	}
+	@Override
+	public String toString() {
+		return board.toString();
+	}
 	public static void SetUpVBox(VBox layout){
 		layout.setAlignment(Pos.CENTER);
 		layout.setSpacing(10);
@@ -542,5 +588,28 @@ public class App extends Application {
 		VBox.setMargin(layout.getChildren().get(0), new Insets(10,0,0,0));
 		VBox.setMargin(layout.getChildren().get(layout.getChildren().size()-1), new Insets(0,0,10,0));
 
+	}
+	
+	class AIMove extends Thread{
+		AI ai;
+		boolean valid;
+		public AIMove(Board board) {
+			valid = board.getIsAIPlayer();
+			if(board.turn)
+				ai = board.white;
+			else
+				ai = board.black;
+		}
+		@Override
+		public void run() {
+			System.out.println("RUNING");
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			System.out.println("RAN");
+		}
 	}
 }

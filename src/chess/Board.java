@@ -1,6 +1,7 @@
 package chess;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Stack;
 
 import chess.pieces.Bishop;
@@ -81,6 +82,27 @@ public class Board {
 				+ "Time Limit: %s\n", mode, cantCastleThroughCheck, cantCastleAfterCheck, (topPlayer ? "White" : "Black"), (computerPlayer ? "White" : "Black"), timeLimit);
 		}
 	}
+	public enum State{
+		INPROGRESS, WHITEWON, BLACKWON, STALEMATE;
+		@Override
+		public String toString() {
+			switch (this) {
+			case INPROGRESS:
+				return "Game In Progress";
+			case WHITEWON:
+				return "White Won!";
+			case BLACKWON:
+				return "Black Won!";
+			case STALEMATE:
+				return "Stalemate!";
+			default:
+				return "Other";
+			}
+		}
+		
+	}
+	
+	
 	/**
 	 * Describes a piece on the board
 	 */
@@ -93,6 +115,7 @@ public class Board {
 	public RuleSet rules;
 
 	public Stack<Move> history;
+	public State gameState;
 
 	public boolean turn;
 
@@ -105,6 +128,7 @@ public class Board {
 		white = new AI(this, true);
 		rules = new RuleSet();
 		setUpBoard();
+		gameState = State.INPROGRESS;
 	}
 	
 	public void setUpBoard(){
@@ -168,13 +192,14 @@ public class Board {
 		moves.add(m);
 		setCaptures(moves);
 		history.push(m);
-		return m.doMove();
+		boolean rv = m.doMove();
+		AI.updateGameState(this);
+		return rv;
 	}
 	
 	public Move undo(){
 		Move rv = history.pop();
 		rv.undoMove();
-		turn = !turn;
 		return rv;
 	}
 
@@ -236,7 +261,7 @@ public class Board {
 		for(Move m: moves){
 			Boolean me = getWhoOccupiesAt(m.from);
 			Boolean to = getWhoOccupiesAt(m.to);
-			if(to != null && to == !me)
+			if(!(to == null) && to == !me)
 				m.setCapture(getPiece(m.to));
 		}
 	}
@@ -246,12 +271,11 @@ public class Board {
 	}
 	
 	public void removeCheckMoves(ArrayList<Move> moves){
-		if(moves.size() == 0) return;
-		boolean me = getWhoOccupiesAt(moves.get(0).from);
-		if(me){
-			for(Move initial: moves){
-				
-			}
+		Iterator<Move> itr = moves.iterator();
+		while(itr.hasNext()){
+			Move m = itr.next();
+			if(m.putsPlayerInCheck(m.me))
+				itr.remove();
 		}
 	}
 	
@@ -265,12 +289,24 @@ public class Board {
 		for(int x = 2; x > 0 && validL; x--){
 			if(getWhoOccupiesAt(new Point(x, y)) != null)
 				validL = false;
+			if(validL && rules.cantCastleThroughCheck){
+				Move test = new Move(new Point(3, y), new Point(x, y), this);
+				if(test.putsPlayerInCheck(test.me)){
+					validL = false;
+				}
+			}
 		}
 		
 		boolean validR = true;
 		for(int x = 4; x < 7 && validR; x++){
 			if(getWhoOccupiesAt(new Point(x, y)) != null)
 				validR = false;
+			if(validR && rules.cantCastleThroughCheck){
+				Move test = new Move(new Point(3, y), new Point(x, y), this);
+				if(test.putsPlayerInCheck(test.me)){
+					validR = false;
+				}
+			}
 		}
 		
 		Piece left = getPiece(new Point(7, y), color);
@@ -286,19 +322,32 @@ public class Board {
 			moves.add(r);
 		}
 	}
-	public void print(){
+	@Override
+	public String toString() {
+		String out = "";
 		for(int y = 0; y < 8; y++){
 			for(int x = 0; x < 8; x++){
 				Piece p = getPiece(new Point(x, y));
 				if(p == null)
-					System.out.print("•");
-				else if(p.isWhite())
-					System.out.print(Character.toUpperCase(p.toString().charAt(0)));
+					out += ("•");
 				else
-					System.out.print(Character.toLowerCase(p.toString().charAt(0)));
+					out += p.toChar();
 			}
-			System.out.println();
+			out += "\n";
 		}
-		System.out.println();
+		out += String.format("It is %s's turn\n\n",turn ? "White" : "Black");
+		return out;
+	}
+	public void print(){
+		System.out.println(this);
+	}
+	public boolean getIsAIPlayer(){
+		if(rules.mode == RuleSet.GameMode.cvc)
+			return true;
+		if(rules.mode == RuleSet.GameMode.pvp)
+			return false;
+		if(rules.computerPlayer == turn)
+			return true;
+		return false;
 	}
 }
