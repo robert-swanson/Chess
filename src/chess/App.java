@@ -1,17 +1,23 @@
 package chess;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import com.sun.scenario.Settings;
+import com.sun.xml.internal.ws.runtime.config.TubelineFeatureReader;
 
 import chess.Board.RuleSet.GameMode;
 import chess.pieces.Piece;
 import javafx.animation.FadeTransition;
+import javafx.animation.KeyFrame;
 import javafx.animation.ParallelTransition;
 import javafx.animation.PathTransition;
 import javafx.animation.RotateTransition;
 import javafx.animation.SequentialTransition;
+import javafx.animation.Timeline;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -52,26 +58,53 @@ import javafx.util.Duration;
  */
 public class App extends Application {
 	public class Messages{
-		public GridPane gPane;
+		public Label label;
 		public Board.State gameState;
-		
-		public Messages(GridPane gP) {
-			gPane = gP;
-		}
-		public void invalidMove(String s){
-			
+		private Timeline tl;
+		FadeTransition fade;
+
+		public Messages(Label l) {
+			label = l;
+			tl = new Timeline(new KeyFrame(
+					Duration.millis(3000),
+					ae -> fade()));
+			fade = new FadeTransition();
 		}
 		public void invalidMove(){
-			invalidMove("");
+			message("Invalid Move");
 		}
 		public void notYourTurn(){
-			
+			message("It's not your turn");
+			System.out.println("Turn");
 		}
 		public void gameOver(){
-			
+			message("Game Over");
+		}
+		
+		private void message(String message){
+			label.setOpacity(1);
+			label.setText(message);
+			tl.stop();
+			fade.stop();
+			tl.play();
+		}
+		private void fade(){
+			fade = new FadeTransition();
+			fade.setNode(label);
+			fade.setDuration(Duration.seconds(1));
+			fade.setFromValue(1.0);
+			fade.setToValue(0.0);
+			label.setOpacity(1);
+			fade.setOnFinished(e -> label.setText(""));
+			fade.play();
+		}
+		private void clear(){
+			label.setText("");
+			tl.stop();
+			fade.stop();
 		}
 	}
-	
+
 	Stage window;
 	Messages messages;
 	HashMap<Point, ImageView> whiteIcons;
@@ -81,6 +114,7 @@ public class App extends Application {
 	Canvas canvas;
 	StackPane layout;
 	Board board;
+	Line turnIndicator;
 	
 	Point selected;
 	
@@ -95,7 +129,13 @@ public class App extends Application {
 		blackIcons = new HashMap<>();
 
 //Graphics
-		messages = new Messages(new GridPane());
+		Label mess = new Label();
+		mess.setFont(new Font("Ubuntu Mono", 24));
+		HBox messBox = new HBox(mess);
+		HBox.setMargin(mess, new Insets(20,10,20,10));
+
+		messBox.setAlignment(Pos.CENTER);
+		messages = new Messages(mess);
 		
 		window = primaryStage;
 		window.setTitle("Chess");
@@ -148,18 +188,18 @@ public class App extends Application {
 		window.heightProperty().addListener(e -> resize());
 
 		step = canvas.getWidth()/8;
-		
+
 		//Initialize
 		initiateBoard();
 		layout.getChildren().add(canvas);
-		
 		initiatePieces();
+		
 				
 		//Master Layout
 		BorderPane masterLayout = new BorderPane();
 		masterLayout.setCenter(layout);
 		masterLayout.setBottom(buttons);
-		masterLayout.setTop(messages.gPane);
+		masterLayout.setTop(messBox);
 		
 		Scene board = new Scene(masterLayout);
 		board.setFill(Color.LIGHTGREY);
@@ -178,24 +218,6 @@ public class App extends Application {
 		setupAnimation(.5,.3);
 
 	}
-	/**
-	 * Called when the window is resized. It fits the canvas and reinstansiates the pieces to fit
-	 */
-	private void resize(){
-		double size = Double.min(window.getHeight()-150, window.getWidth()-40);
-		canvas.setWidth(size);
-		canvas.setHeight(size);
-		step = size/8;
-		initiateBoard();
-		for(ImageView icon: blackIcons.values()){
-			icon.setFitWidth(step);
-		}
-		for(ImageView icon: whiteIcons.values()){
-			icon.setFitWidth(step);
-		}
-		setupAnimation(.0001, 0);
-	}
-	
 	/**
 	 * Draws the board on the canvas
 	 */
@@ -216,6 +238,31 @@ public class App extends Application {
 		}
 		if(selected != null)
 			select(selected);
+		
+		double h = canvas.getHeight();
+		double y = board.turn == board.rules.topPlayer ?  0: h; 
+		gc.setStroke(board.getIsAIPlayer() ? Color.RED : Color.BLUE);
+		gc.setLineWidth(step*.1);
+		gc.strokeLine(0, y, h, y);
+	}
+
+	/**
+	 * Called when the window is resized. It fits the canvas and reinstansiates the pieces to fit
+	 */
+	private void resize(){
+		double size = Double.min(window.getHeight()-150, window.getWidth()-40);
+
+		canvas.setWidth(size);
+		canvas.setHeight(size);
+		step = size/8;
+		initiateBoard();
+		for(ImageView icon: blackIcons.values()){
+			icon.setFitWidth(step);
+		}
+		for(ImageView icon: whiteIcons.values()){
+			icon.setFitWidth(step);
+		}
+		setupAnimation(.0001, 0);
 	}
 	
 	/**
@@ -241,6 +288,7 @@ public class App extends Application {
 			layout.getChildren().add(icon);
 		}		
 	}
+	
 	private ImageView initPiece(Point p, boolean player, Piece piece){
 		String color = (player ? "White_" : "Black_") + piece.toString() + ".png";
 		ImageView icon = new ImageView(getClass().getResource(color).toString());
@@ -420,7 +468,9 @@ public class App extends Application {
 		
 		if(selected == null){ //Initial selection
 			if(!board.getIsAIPlayer() && playerHasPiece(clicked, board.turn))
-				select(clicked);	
+				select(clicked);
+			else if(playerHasPiece(clicked, !board.turn))
+				messages.notYourTurn();
 		}
 		else{
 			if(!playerHasPiece(clicked, board.turn)){	//Move
@@ -440,7 +490,7 @@ public class App extends Application {
 			messages.gameOver();
 			return;
 		}
-		if(!playerHasPiece(m.from, board.turn)){
+		if(playerHasPiece(m.from, !board.turn)){
 			messages.notYourTurn();
 			return;
 		}
@@ -474,7 +524,7 @@ public class App extends Application {
 						animateMove(new Point(7, y), new Point(4, y), .5);
 					}
 				}
-				messages.setTurn(board.turn);
+				initiateBoard();
 				AIMove aimove = new AIMove(board);
 				if(board.gameState != Board.State.INPROGRESS){
 					messages.gameOver();
