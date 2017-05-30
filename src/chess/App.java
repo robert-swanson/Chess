@@ -61,34 +61,49 @@ public class App extends Application {
 		public Label label;
 		public Board.State gameState;
 		private Timeline tl;
+		private Duration duration;
 		FadeTransition fade;
 
+		private void updateTimeLine(Duration d){
+			duration = d;
+			tl = new Timeline(new KeyFrame(
+					d,
+					ae -> fade()));
+		}
 		public Messages(Label l) {
 			label = l;
-			tl = new Timeline(new KeyFrame(
-					Duration.millis(3000),
-					ae -> fade()));
 			fade = new FadeTransition();
+			updateTimeLine(Duration.ZERO);
 		}
 		public void invalidMove(){
-			message("Invalid Move");
+			message("Invalid Move", Duration.seconds(3));
 		}
 		public void notYourTurn(){
-			message("It's not your turn");
-			System.out.println("Turn");
+			message("It's not your turn",Duration.seconds(3));
 		}
 		public void gameOver(){
-			message("Game Over");
+			if(gameState == Board.State.BLACKWON)
+				message("Black Won!", Duration.INDEFINITE);
+			else if(gameState == Board.State.WHITEWON)
+				message("White Won!", Duration.INDEFINITE);
+			else if(gameState == Board.State.STALEMATE)
+				message("Stalemate!",Duration.INDEFINITE);
+			else
+				message("Game Over ERROR", Duration.seconds(3));
 		}
-		
-		private void message(String message){
+
+		private void message(String message, Duration d){
+			updateTimeLine(d);
 			label.setOpacity(1);
-			label.setText(message);
+			label.setText(message);	//FIXME Labeled
+			System.out.println(message);
 			tl.stop();
 			fade.stop();
 			tl.play();
 		}
 		private void fade(){
+			if(duration == Duration.INDEFINITE)
+				return;
 			fade = new FadeTransition();
 			fade.setNode(label);
 			fade.setDuration(Duration.seconds(1));
@@ -105,6 +120,8 @@ public class App extends Application {
 		}
 	}
 
+	final double Animation_Duration = 2; 
+
 	Stage window;
 	Messages messages;
 	HashMap<Point, ImageView> whiteIcons;
@@ -115,20 +132,28 @@ public class App extends Application {
 	StackPane layout;
 	Board board;
 	Line turnIndicator;
-	
+	SimpleBooleanProperty allowance;
+	int running;
+	ArrayList<PathTransition> animations;
+
 	Point selected;
+
+	Move aisMove;
 	
 	public static void main(String[] args){
 		launch(args);
 	}
-	
+
 	@Override
 	public void start(Stage primaryStage) throws Exception {
-		board = new Board();
+		animations = new ArrayList<>();
+		allowance = new SimpleBooleanProperty(true);
+		board = new Board(allowance);
+		board = new Board(allowance);
 		whiteIcons = new HashMap<>();
 		blackIcons = new HashMap<>();
 
-//Graphics
+		//Graphics
 		Label mess = new Label();
 		mess.setFont(new Font("Ubuntu Mono", 24));
 		HBox messBox = new HBox(mess);
@@ -136,54 +161,54 @@ public class App extends Application {
 
 		messBox.setAlignment(Pos.CENTER);
 		messages = new Messages(mess);
-		
+
 		window = primaryStage;
 		window.setTitle("Chess");
 		window.setWidth(1000);
 		window.setHeight(1000);
 		window.setMinHeight(550);
 		window.setMinWidth(450);
-		
-	//Initialize
-	
-		
+
+		//Initialize
+
+
 		//Buttons
 		HBox buttons = new HBox(10);
 		buttons.setAlignment(Pos.CENTER);
 		buttons.setPadding(new Insets(10,0,10,0));
-		
+
 		Button reset = new Button("Restart");
 		reset.setOnAction(e -> reset());
-		
+
 		Button sync = new Button("Syncronize");
 		sync.setOnAction(e -> {
 			initiatePieces();
 			resize();
 			setupAnimation(.0001, 0);
 		});
-		
+
 		Button print = new Button("Print");
 		print.setOnAction(e -> board.print());
-		
+
 		Button undo = new Button("Undo");
 		undo.setOnAction(e -> {
 			undo();
 		});
-		
+
 		Button sButton = new Button("Settings");
 		sButton.setOnAction(e -> {
 			SettingsView s = new SettingsView(board);
 			s.display();
 			reset();
 		});
-		
+
 		buttons.getChildren().addAll(reset, sync, print, undo, sButton);
 
-		
+
 		//Stack Pane
 		layout = new StackPane();
 		canvas = new Canvas(100,100);
-		
+
 		window.widthProperty().addListener(e -> resize());
 		window.heightProperty().addListener(e -> resize());
 
@@ -193,30 +218,29 @@ public class App extends Application {
 		initiateBoard();
 		layout.getChildren().add(canvas);
 		initiatePieces();
-		
-				
+
+
 		//Master Layout
 		BorderPane masterLayout = new BorderPane();
 		masterLayout.setCenter(layout);
 		masterLayout.setBottom(buttons);
 		masterLayout.setTop(messBox);
-		
+
 		Scene board = new Scene(masterLayout);
 		board.setFill(Color.LIGHTGREY);
 		window.setScene(board);
-		
+
 		//Mouse Handler
 		canvas.setOnMouseClicked(e -> {
 			click(e.getX(), e.getY(),null);
 		});
-		
-		
+
+
 		//Show the Window
 		window.show();
-		
-		resize();
-		setupAnimation(.5,.3);
 
+		resize();
+		setupAnimation(Animation_Duration,0);
 	}
 	/**
 	 * Draws the board on the canvas
@@ -224,7 +248,7 @@ public class App extends Application {
 	private void initiateBoard(){
 		GraphicsContext gc = canvas.getGraphicsContext2D();
 		gc.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
-		
+
 		boolean startBlack = true;
 		for(int y = 0; y < 8; y++){
 			boolean black = startBlack;
@@ -238,7 +262,7 @@ public class App extends Application {
 		}
 		if(selected != null)
 			select(selected);
-		
+
 		double h = canvas.getHeight();
 		double y = board.turn == board.rules.topPlayer ?  0: h; 
 		gc.setStroke(board.getIsAIPlayer() ? Color.RED : Color.BLUE);
@@ -264,7 +288,7 @@ public class App extends Application {
 		}
 		setupAnimation(.0001, 0);
 	}
-	
+
 	/**
 	 * Creates and adds an icon for every piece on the board
 	 */
@@ -273,11 +297,11 @@ public class App extends Application {
 		layout.getChildren().removeAll(whiteIcons.values());
 		blackIcons.clear();
 		whiteIcons.clear();
-		
+
 		for(Point point: board.blackPieces.keySet()){
 			Piece piece = board.blackPieces.get(point);
 			ImageView icon = initPiece(point, false, piece);
-			
+
 			blackIcons.put(point, icon);
 			layout.getChildren().add(icon);
 		}
@@ -288,7 +312,7 @@ public class App extends Application {
 			layout.getChildren().add(icon);
 		}		
 	}
-	
+
 	private ImageView initPiece(Point p, boolean player, Piece piece){
 		String color = (player ? "White_" : "Black_") + piece.toString() + ".png";
 		ImageView icon = new ImageView(getClass().getResource(color).toString());
@@ -297,7 +321,7 @@ public class App extends Application {
 		icon.setOnMouseClicked(e-> click(0,0,p));
 		return icon;
 	}
-	
+
 	/**
 	 * Animates the pieces coming out from the center
 	 * @param duration
@@ -309,6 +333,7 @@ public class App extends Application {
 		ArrayList<Point> points = new ArrayList<>();
 		points.addAll(board.blackPieces.keySet());
 		points.addAll(board.whitePieces.keySet());
+		int i = 0;
 		
 		for(Point p:points){
 			ImageView icon;
@@ -323,20 +348,26 @@ public class App extends Application {
 				continue;
 			}
 			icon.setVisible(true);
-			
+
 			double[] t = getLayoutCoord(p);
 			double diff = step/2;
-			
+
 			Line path = new Line(diff, diff, t[0], t[1]);
 			PathTransition move = new PathTransition();
 			move.setPath(path);
 			move.setDuration(Duration.seconds(duration));
 			move.setDelay(Duration.seconds(delay));
 			move.setNode(icon);
+			if(duration > .001 && ++i == points.size())
+				move.setOnFinished(e -> {
+					if(board.getIsAIPlayer())
+						new AIMove(board).start();
+				});
 			move.play();
 		}
+		
 	}
-	
+
 	/**
 	 * Animates a move
 	 * @param from
@@ -346,7 +377,7 @@ public class App extends Application {
 	 * @param duration
 	 * The duration of the animation
 	 */
-	private void animateMove(Point from, Point to, double duration){
+	private PathTransition animateMove(Point from, Point to, double duration){
 		ImageView icon;
 		if(whiteIcons.containsKey(from)){
 			icon = whiteIcons.remove(from);
@@ -359,8 +390,8 @@ public class App extends Application {
 			blackIcons.put(to, icon);
 		}
 		else{
-			System.err.printf("Cannot Animate piece at %s because it isn't there\n",from.toString());
-			return;
+			System.err.printf("Cannot Animate piece at %s because it isn't there. (Move: %s)\n",from.toString(), board.history.peek());
+			return null;
 		}
 		double[] f = getLayoutCoord(from);
 		double[] t = getLayoutCoord(to);
@@ -369,7 +400,9 @@ public class App extends Application {
 		move.setPath(path);
 		move.setDuration(Duration.seconds(duration));
 		move.setNode(icon);
+		animations.add(move);
 		move.play();
+		return move;
 	}
 	private void animateCapture(Point pos, double duration, boolean color){
 		ImageView icon;
@@ -377,6 +410,10 @@ public class App extends Application {
 			icon = whiteIcons.get(pos);
 		else
 			icon = blackIcons.get(pos);
+		if(icon == null){
+			System.err.println("No Point At: " + pos);
+			return;
+		}
 		RotateTransition rotate = new RotateTransition(Duration.seconds(duration),icon);
 		rotate.setByAngle(200);
 		FadeTransition fade = new FadeTransition(Duration.seconds(duration), icon);
@@ -400,13 +437,13 @@ public class App extends Application {
 		move.setDuration(Duration.millis(10));
 		move.setNode(piece);
 
-		
+
 		FadeTransition fade = new FadeTransition();
 		fade.setNode(piece);
 		fade.setFromValue(0.0);
 		fade.setToValue(1.0);
 		fade.setDuration(Duration.seconds(duration));
-		
+
 		SequentialTransition uncap = new SequentialTransition(move, fade);
 		uncap.play();
 
@@ -422,7 +459,7 @@ public class App extends Application {
 		double start = 0 - step * 3;
 		return new double[]{(start + step * p.x), (start + step * p.y)};
 	}
-	
+
 	/**
 	 * Gets the coordinate relative to the canvas: (0,0) = top left corner
 	 * The point to be converted
@@ -432,7 +469,7 @@ public class App extends Application {
 	private double[] getCanvasCoord(Point p){
 		return new double[]{(step * p.x), (step * p.y)};
 	}
-	
+
 	/**
 	 * Gets the point of a click on the canvas
 	 * @param x
@@ -447,7 +484,7 @@ public class App extends Application {
 		y /= step;
 		return new Point((int)x, (int)y);
 	}
-	
+
 	/**
 	 * Handles the click event at either the given point or canvas coordinates
 	 * @param x
@@ -458,6 +495,10 @@ public class App extends Application {
 	 * Point clicked
 	 */
 	private void click(double x, double y, Point p){
+		if(board.gameState != Board.State.INPROGRESS){
+			messages.gameOver();
+			return;
+		}
 		if(board.rules.mode.toString().equals("Computer vs Computer"))
 			return;
 		Point clicked;
@@ -465,17 +506,25 @@ public class App extends Application {
 			clicked = getPoint(x, y);
 		else
 			clicked = p;
-		
+
 		if(selected == null){ //Initial selection
 			if(!board.getIsAIPlayer() && playerHasPiece(clicked, board.turn))
 				select(clicked);
 			else if(playerHasPiece(clicked, !board.turn))
 				messages.notYourTurn();
+			else if(board.getIsAIPlayer())
+				messages.message("You Cannot Move For The AI", Duration.seconds(3));
 		}
 		else{
 			if(!playerHasPiece(clicked, board.turn)){	//Move
 				Move m = new Move(selected, clicked, board);
-				move(m);
+				try{
+					move(m);
+				}catch (Exception e) {
+					System.err.println(e.getStackTrace());
+					board.print();
+					System.out.println("HERE");
+				}
 				deSelect();
 			}
 			else{										//Reselected
@@ -484,59 +533,67 @@ public class App extends Application {
 			}
 		}
 	}
-	
+
 	private void move(Move m){
-		if(board.gameState != Board.State.INPROGRESS){
-			messages.gameOver();
-			return;
-		}
+		if(board.history.size() > 50)
+			reset();
 		if(playerHasPiece(m.from, !board.turn)){
 			messages.notYourTurn();
 			return;
 		}
-		else if(board.getIsAIPlayer()){
-			messages.notYourTurn();
-			return;
-		}
 		else{
-			ArrayList<Move> moves = board.getPiece(m.from).getMoves(board, m.from);
-			int i = moves.indexOf(m);
-			if(i >= 0 && !moves.get(i).putsPlayerInCheck(m.me)){
-				m = moves.get(i);
-				if(m.putsPlayerInCheck(!m.me)){
-					System.out.println("Check");
-				}
-				if(board.move(m)){	//Moves returns if capture piece
-					if (m.me){
-						animateCapture(m.to, .5, false);
+			Piece f = board.getPiece(m.from);
+			if(f == null)
+				System.err.printf("No Piece At %s\n", m.from);
+			else{
+				ArrayList<Move> moves = f.getMoves(board, m.from);
+				int i = moves.indexOf(m);
+				if(i >= 0 && !moves.get(i).putsPlayerInCheck(m.me)){
+					m = moves.get(i);
+					if(m.putsPlayerInCheck(!m.me)){
+						messages.message("Check", Duration.seconds(3));
 					}
-					else
-						animateCapture(m.to, .5, true);
-				}
-				animateMove(m.from, m.to, .5);
-				if(m.castlingMove){
-					boolean left = m.to.x < 3;
-					int y = m.me == board.rules.topPlayer ? 0 : 7;
-					if(left){
-						animateMove(new Point(0, y), new Point(2, y), .5);
+					if(board.move(m)){	//Moves returns if capture piece
+						if (m.me){
+							animateCapture(m.to, Animation_Duration, false);
+						}
+						else
+							animateCapture(m.to, Animation_Duration, true);
 					}
-					else{
-						animateMove(new Point(7, y), new Point(4, y), .5);
+					
+					PathTransition move = animateMove(m.from, m.to, Animation_Duration);
+					move.setOnFinished(e -> {
+						if(board.getIsAIPlayer() && board.gameState == Board.State.INPROGRESS && allowance.get())
+							new AIMove(board).start();
+						animations.remove(move);
+					});
+//					int stop = 16;
+//					if(board.history.size() == stop - 2)
+//						board.rules.mode = GameMode.pvp;
+//					else if(board.history.size() == stop)
+//						board.rules.mode = GameMode.cvc;
+					
+					
+					if(m.castlingMove){
+						boolean left = m.to.x < 3;
+						int y = m.me == board.rules.topPlayer ? 0 : 7;
+						if(left){
+							animateMove(new Point(0, y), new Point(2, y), Animation_Duration);
+						}
+						else{
+							animateMove(new Point(7, y), new Point(4, y), Animation_Duration);
+						}
+					}
+					initiateBoard();
+					if(board.gameState != Board.State.INPROGRESS){
+						messages.gameState = board.gameState;
+						messages.gameOver();
 					}
 				}
-				initiateBoard();
-				AIMove aimove = new AIMove(board);
-				if(board.gameState != Board.State.INPROGRESS){
-					messages.gameOver();
-				}
-				else
-					aimove.start();
 			}
-			else
-				messages.invalidMove();
 		}
 	}
-	
+
 	/**
 	 * Draws a box on the board to show the point is selected
 	 * @param p
@@ -550,7 +607,7 @@ public class App extends Application {
 		gc.setLineWidth(width);
 		gc.strokeRect(grid[0]+width/2, grid[1]+width/2 ,step-width, step-width);
 	}
-	
+
 	/**
 	 * Clears any selected points
 	 */
@@ -559,26 +616,32 @@ public class App extends Application {
 		canvas.getGraphicsContext2D().clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
 		initiateBoard();
 	}
-	
+
 	/**
 	 * Resets the board
 	 */
 	private void reset(){
+		allowance.set(false);
+		messages.clear();
 		deSelect();
 		board.setUpBoard();
 		initiatePieces();
 		resize();
-		setupAnimation(.5,0);
-
+		allowance.set(true);
+		for(PathTransition p: animations)
+			p.stop();
+		animations.clear();
+		allowance.set(false);
+		setupAnimation(Animation_Duration,0);
 	}
-	
+
 	private void undo(){
 		if(board.history.isEmpty())
 			System.out.println("Cant Undo");
 		else{
 			Move m = board.history.peek();
 			board.undo();
-			animateMove(m.to, m.from, .5);
+			animateMove(m.to, m.from, Animation_Duration);
 			if(m.getCapture() != null){
 				Piece piece = m.getCapture();
 				ImageView icon = initPiece(m.to, piece.isWhite(), piece);
@@ -589,20 +652,20 @@ public class App extends Application {
 				else
 					blackIcons.put(m.to, icon);
 				icon.setFitWidth(step);
-				unCapture(icon, .5, m.to);
+				unCapture(icon, Animation_Duration, m.to);
 			}
 			if(m.castlingMove){
 				boolean left = m.to.x < 4;
 				int y = m.me == board.rules.topPlayer ? 0 : 7;
 				if(left)
-					animateMove(new Point(2, y), new Point(0, y), .5);
+					animateMove(new Point(2, y), new Point(0, y), Animation_Duration);
 				else
-					animateMove(new Point(4, y), new Point(7, y), .5);
+					animateMove(new Point(4, y), new Point(7, y), Animation_Duration);
 			}
 			board.print();
 		}
 	}
-	
+
 	/**
 	 * Determines if the given player has a piece at the given point
 	 * @param p
@@ -634,12 +697,12 @@ public class App extends Application {
 		text.setMaxWidth(60);
 	}
 	public static void SetMargins(VBox layout){
-		
+
 		VBox.setMargin(layout.getChildren().get(0), new Insets(10,0,0,0));
 		VBox.setMargin(layout.getChildren().get(layout.getChildren().size()-1), new Insets(0,0,10,0));
 
 	}
-	
+
 	class AIMove extends Thread{
 		AI ai;
 		boolean valid;
@@ -652,14 +715,26 @@ public class App extends Application {
 		}
 		@Override
 		public void run() {
-			System.out.println("RUNING");
-			try {
-				Thread.sleep(1000);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+			AI ai = board.getAI();
+			Move move = null;
+			try{
+				move = ai.getBestMove();
+			}catch (Exception e) {
+				e.printStackTrace(System.out); //TODO here
+				board.print();
 			}
-			System.out.println("RAN");
+			if(allowance.get() && move != null){
+				aisMove = move;
+				Runnable runn = new Runnable() {
+
+					@Override
+					public void run() {
+						move(aisMove);
+					}
+				};
+				Platform.runLater(runn);
+			}
+
 		}
 	}
 }

@@ -151,7 +151,7 @@ public class Move
 	@Override
 	public String toString()
 	{
-		String rv = String.format("%s -> %s",from.toString(), to.toString());
+		String rv = String.format("%s %s -> %s",piece, from.toString(), to.toString());
 		if (capturedPiece != null)
 		{
 			rv += String.format(", Captured %s", capturedPiece.toString());

@@ -41,14 +41,16 @@ public class Pawn extends Piece
 		Point forward = pos.getNewPoint(1, (up ? 0 : 4));
 		Boolean forwardO = board.getWhoOccupiesAt(forward);
 		
-		if(!hasMoved && jumpO == null)
-			moves.add(new Move(pos, jump, board));
-		if(capLeftO != null && capLeftO == !this.color)
+		
+		if(capLeftO != null && capLeftO == !this.color && capLeft.isInBoard())
 			moves.add(new Move(pos, capLeft,board));
-		if(capRightO != null && capRightO == !this.color)
+		if(capRightO != null && capRightO == !this.color && capRight.isInBoard())
 			moves.add(new Move(pos, capRight, board));
-		if(forwardO == null)
+		if(forwardO == null && forward.isInBoard()){
 			moves.add(new Move(pos, forward,board));
+			if(!hasMoved && jumpO == null)
+				moves.add(new Move(pos, jump, board));
+		}
 		
 		board.setCaptures(moves);
 		return moves;

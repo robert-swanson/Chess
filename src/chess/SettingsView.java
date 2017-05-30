@@ -70,7 +70,7 @@ public class SettingsView{
 				rules.mode = Board.RuleSet.GameMode.pvc;
 			else
 				rules.mode = Board.RuleSet.GameMode.cvc;
-			System.out.println(layout.getChildren().remove(stratagy));
+			layout.getChildren().remove(stratagy);
 			initStratagyView(rules.mode);
 			layout.getChildren().add(layout.getChildren().size()-1, stratagy);
 		});

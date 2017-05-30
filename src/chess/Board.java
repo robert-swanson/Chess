@@ -11,6 +11,7 @@ import chess.pieces.Pawn;
 import chess.pieces.Piece;
 import chess.pieces.Queen;
 import chess.pieces.Rook;
+import javafx.beans.property.SimpleBooleanProperty;
 
 /**
  * Manages the black and white pieces
@@ -64,7 +65,7 @@ public class Board {
 		TimeLimit timeLimit;
 
 		public RuleSet() {
-			mode = GameMode.pvp;
+			mode = GameMode.cvc;
 			cantCastleThroughCheck = true;
 			cantCastleAfterCheck = false;
 			topPlayer = false;
@@ -113,6 +114,7 @@ public class Board {
 	AI white;
 
 	public RuleSet rules;
+	public Boolean allowance;
 
 	public Stack<Move> history;
 	public State gameState;
@@ -123,9 +125,9 @@ public class Board {
 	 * Initailizes the pieces on the board according to what player is on the top
 	 * @param topPlayer
 	 */
-	public Board() {
-		black = new AI(this, false);
-		white = new AI(this, true);
+	public Board(SimpleBooleanProperty allowance) {
+		black = new AI(this, false, allowance);
+		white = new AI(this, true, allowance);
 		rules = new RuleSet();
 		setUpBoard();
 		gameState = State.INPROGRESS;
@@ -133,6 +135,7 @@ public class Board {
 	
 	public void setUpBoard(){
 		boolean topPlayer = rules.topPlayer;
+		gameState = State.INPROGRESS;
 		whitePieces  = new HashMap<>();
 		blackPieces  = new HashMap<>();
 		turn = true;
@@ -229,6 +232,11 @@ public class Board {
 		else
 			return blackPieces.get(p);
 	}
+	public HashMap<Point, Piece> getPieces(boolean color){
+		if(color)
+			return whitePieces;
+		return blackPieces;
+	}
 	public Piece removePiece(Point p, boolean color){
 		if(color)
 			return whitePieces.remove(p);
@@ -286,6 +294,9 @@ public class Board {
 			return;
 		
 		boolean validL = true;
+		Piece left = getPiece(new Point(0, y), color);
+		if(left == null || !(left instanceof Rook) || left.hasMoved)
+			validL = false;
 		for(int x = 2; x > 0 && validL; x--){
 			if(getWhoOccupiesAt(new Point(x, y)) != null)
 				validL = false;
@@ -298,6 +309,9 @@ public class Board {
 		}
 		
 		boolean validR = true;
+		Piece right = getPiece(new Point(7, y), color);
+		if(right == null || !(right instanceof Rook) || right.hasMoved)
+			validR = false;
 		for(int x = 4; x < 7 && validR; x++){
 			if(getWhoOccupiesAt(new Point(x, y)) != null)
 				validR = false;
@@ -309,14 +323,12 @@ public class Board {
 			}
 		}
 		
-		Piece left = getPiece(new Point(7, y), color);
-		Piece right = getPiece(new Point(7, y), color);
-		if(validL && left != null && left instanceof Rook && !left.hasMoved){
+		if(validL){
 			Move l = new Move(new Point(3, y), new Point(1, y), this);
 			l.castlingMove = true;
 			moves.add(l);
 		}
-		if(validR && right != null && right instanceof Rook && !right.hasMoved){
+		if(validR){
 			Move r = new Move(new Point(3, y), new Point(5, y), this);
 			r.castlingMove = true;
 			moves.add(r);
@@ -335,11 +347,18 @@ public class Board {
 			}
 			out += "\n";
 		}
-		out += String.format("It is %s's turn\n\n",turn ? "White" : "Black");
+		out += String.format("It is %s's turn\n",turn ? "White" : "Black");
 		return out;
 	}
 	public void print(){
 		System.out.println(this);
+		System.out.println(history.size() + ": " + history);
+	}
+	public AI getAI(){
+		if(getIsAIPlayer())
+			return turn ? white : black;
+		System.err.println("Get AI ERROR");
+		return null;
 	}
 	public boolean getIsAIPlayer(){
 		if(rules.mode == RuleSet.GameMode.cvc)

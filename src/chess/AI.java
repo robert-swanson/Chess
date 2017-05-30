@@ -1,9 +1,11 @@
 package chess;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 
 import chess.pieces.Piece;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 
 /**
@@ -41,13 +43,18 @@ public class AI {
 	Board board;
 	Stratagy stratagy;
 	boolean player;
+	SimpleBooleanProperty allowance;
+	public boolean running;
 	
-	public SimpleIntegerProperty skill;
+//	public SimpleIntegerProperty skill;
 	
-	public AI(Board board, boolean player) {
+	public AI(Board board, boolean player, SimpleBooleanProperty a) {
+		allowance = a;
+		allowance.addListener(e -> respondToKill());
 		this.board = board;
 		this.player = player;
 		stratagy = new Stratagy();
+		running = false;
 	}
 	
 	/**
@@ -70,7 +77,22 @@ public class AI {
 	 * The best move
 	 */
 	public Move getBestMove(){
-		return new Move(new Point(0, 0), new Point(0, 0), board);
+		running = true;
+		boolean me = board.turn;
+		HashMap<Point, Piece> pieces = board.getPieces(me);
+		ArrayList<Move> moves = new ArrayList<>();
+		for(Point point: pieces.keySet().toArray(new Point[pieces.size()])){
+			Piece piece = board.getPiece(point, me);
+			moves.addAll(piece.getMoves(board, point));
+			if(!allowance.get())
+				return null;
+		}
+		board.removeCheckMoves(moves);
+//		int rand = 14121 % moves.size();
+		int rand = (int) (Math.random() * moves.size());
+		running = false;
+		return moves.get(rand);
+		
 		//TODO Make getBestMove
 	}
 	
@@ -110,14 +132,22 @@ public class AI {
 		//TODO Make score
 	}
 	
+	public void respondToKill(){
+		while(running);
+	}
+	
 	public static void updateGameState(Board board){
 		boolean turn = board.turn;
 		if(turn){
 			ArrayList<Move> moves = new ArrayList<>();
-			for(Point p : board.whitePieces.keySet()){
+			int s = board.whitePieces.size();
+			Point[] points = board.whitePieces.keySet().toArray(new Point[s]);
+			for(Point p: points){
+				ArrayList<Move> piecesMoves = new ArrayList<>();
 				Piece piece = board.getPiece(p, true);
-				moves.addAll(piece.getMoves(board, p));
-				board.removeCheckMoves(moves);
+				piecesMoves.addAll(piece.getMoves(board, p));
+				board.removeCheckMoves(piecesMoves);
+				moves.addAll(piecesMoves);
 				if(moves.size() > 0)
 					break;
 			}
