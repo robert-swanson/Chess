@@ -42,17 +42,33 @@ public class Pawn extends Piece
 		Boolean forwardO = board.getWhoOccupiesAt(forward);
 		
 		
-		if(capLeftO != null && capLeftO == !this.color && capLeft.isInBoard())
-			moves.add(new Move(pos, capLeft,board));
-		if(capRightO != null && capRightO == !this.color && capRight.isInBoard())
-			moves.add(new Move(pos, capRight, board));
+		if(capLeftO != null && capLeftO == !this.color && capLeft.isInBoard()){
+			Move cl = new Move(pos, capLeft,board);
+			addSwitch(cl, moves);
+			}
+		if(capRightO != null && capRightO == !this.color && capRight.isInBoard()){
+			Move cr = new Move(pos, capRight, board);
+			addSwitch(cr, moves);
+			}
 		if(forwardO == null && forward.isInBoard()){
-			moves.add(new Move(pos, forward,board));
+			Move m = new Move(pos, forward,board);
+			addSwitch(m, moves);
 			if(!hasMoved && jumpO == null)
 				moves.add(new Move(pos, jump, board));
 		}
-		
 		board.setCaptures(moves);
 		return moves;
+	}
+	private void addSwitch(Move m, ArrayList<Move> moves){
+		if(m.to.y == 0 || m.to.y == 7){
+			Move q = new Move(m);
+			Move k  = new Move(m);
+			q.changedTo = new Queen(m.me);
+			k.changedTo = new Knight(m.me);
+			moves.add(q);
+			moves.add(k);
+		}
+		else
+			moves.add(m);
 	}
 }

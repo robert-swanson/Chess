@@ -1,14 +1,12 @@
 package chess;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Timer;
-import java.util.TimerTask;
-
-import com.sun.scenario.Settings;
-import com.sun.xml.internal.ws.runtime.config.TubelineFeatureReader;
 
 import chess.Board.RuleSet.GameMode;
+import chess.pieces.Knight;
+import chess.pieces.Pawn;
 import chess.pieces.Piece;
+import chess.pieces.Queen;
 import javafx.animation.FadeTransition;
 import javafx.animation.KeyFrame;
 import javafx.animation.ParallelTransition;
@@ -16,33 +14,20 @@ import javafx.animation.PathTransition;
 import javafx.animation.RotateTransition;
 import javafx.animation.SequentialTransition;
 import javafx.animation.Timeline;
+import javafx.animation.Transition;
+import javafx.animation.Animation.Status;
 import javafx.application.Application;
-import javafx.application.Platform;
-import javafx.beans.binding.Bindings;
-import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.SimpleBooleanProperty;
-import javafx.beans.property.SimpleDoubleProperty;
-import javafx.beans.property.SimpleIntegerProperty;
-import javafx.beans.property.SimpleStringProperty;
-import javafx.beans.property.StringProperty;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
-import javafx.scene.control.CheckBox;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
 import javafx.scene.image.ImageView;
-import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -93,12 +78,13 @@ public class App extends Application {
 		}
 
 		private void message(String message, Duration d){
+			tl.stop();
+			fade.stop();
 			updateTimeLine(d);
 			label.setOpacity(1);
 			label.setText(message);	//FIXME Labeled
-			System.out.println(message);
-			tl.stop();
-			fade.stop();
+			if(!message.equals("Check"))
+				System.out.println(message);
 			tl.play();
 		}
 		private void fade(){
@@ -120,7 +106,7 @@ public class App extends Application {
 		}
 	}
 
-	final double Animation_Duration = 2; 
+	final double Animation_Duration = .3; 
 
 	Stage window;
 	Messages messages;
@@ -134,11 +120,12 @@ public class App extends Application {
 	Line turnIndicator;
 	SimpleBooleanProperty allowance;
 	int running;
-	ArrayList<PathTransition> animations;
+	ArrayList<Transition> animations;
 
 	Point selected;
 
 	Move aisMove;
+	Status AIStatus;
 	
 	public static void main(String[] args){
 		launch(args);
@@ -146,6 +133,7 @@ public class App extends Application {
 
 	@Override
 	public void start(Stage primaryStage) throws Exception {
+		AIStatus = Status.PAUSED;
 		animations = new ArrayList<>();
 		allowance = new SimpleBooleanProperty(true);
 		board = new Board(allowance);
@@ -188,11 +176,26 @@ public class App extends Application {
 		});
 
 		Button print = new Button("Print");
-		print.setOnAction(e -> board.print());
+		print.setOnAction(e -> {
+			board.print();
+			System.out.println(animations);
+		});
 
 		Button undo = new Button("Undo");
 		undo.setOnAction(e -> {
-			undo();
+			switch(board.rules.mode){
+			case cvc:
+				break;
+			case pvc:
+				undo();
+				undo();
+				break;
+			case pvp:
+				undo();
+				break;
+			default:
+				break;
+			}
 		});
 
 		Button sButton = new Button("Settings");
@@ -201,8 +204,31 @@ public class App extends Application {
 			s.display();
 			reset();
 		});
-
-		buttons.getChildren().addAll(reset, sync, print, undo, sButton);
+		
+		Button stepT = new Button("Step");
+		stepT.setOnAction(e -> {
+			if(board.getIsAIPlayer())
+				new AIMove(board).start();
+		});
+		
+		Button pausePlay = new Button("Play");
+		pausePlay.setOnAction(e -> {
+			if(board.rules.mode == GameMode.cvc){
+				if(pausePlay.getText().equals("Play")){
+					pausePlay.setText("Pause");
+					AIStatus = Status.RUNNING;
+				}
+				else{
+					pausePlay.setText("Play");
+					AIStatus = Status.PAUSED;
+				}
+				new AIMove(board).start();
+			}
+		});
+		
+		
+		
+		buttons.getChildren().addAll(reset, sync, print, undo, sButton, pausePlay, stepT);
 
 
 		//Stack Pane
@@ -360,7 +386,7 @@ public class App extends Application {
 			move.setNode(icon);
 			if(duration > .001 && ++i == points.size())
 				move.setOnFinished(e -> {
-					if(board.getIsAIPlayer())
+					if(board.getIsAIPlayer() && AIStatus == Status.RUNNING)
 						new AIMove(board).start();
 				});
 			move.play();
@@ -377,17 +403,18 @@ public class App extends Application {
 	 * @param duration
 	 * The duration of the animation
 	 */
-	private PathTransition animateMove(Point from, Point to, double duration){
+	private Transition animateMove(Point from, Point to, double duration){
 		ImageView icon;
+		System.out.println(blackIcons.get(new Point(2, 2)));
 		if(whiteIcons.containsKey(from)){
 			icon = whiteIcons.remove(from);
 			icon.setOnMouseClicked(e-> click(0,0,to));
-			whiteIcons.put(to, icon);
+			System.out.println("white" + whiteIcons.put(to, icon));
 		}
 		else if(blackIcons.containsKey(from)){
 			icon = blackIcons.remove(from);
 			icon.setOnMouseClicked(e-> click(0,0,to));
-			blackIcons.put(to, icon);
+			System.out.println("black" + blackIcons.put(to, icon));
 		}
 		else{
 			System.err.printf("Cannot Animate piece at %s because it isn't there. (Move: %s)\n",from.toString(), board.history.peek());
@@ -400,11 +427,12 @@ public class App extends Application {
 		move.setPath(path);
 		move.setDuration(Duration.seconds(duration));
 		move.setNode(icon);
+		
 		animations.add(move);
-		move.play();
+		move.setOnFinished(e -> animations.remove(move));
 		return move;
 	}
-	private void animateCapture(Point pos, double duration, boolean color){
+	private Transition animateCapture(Point pos, double duration, boolean color){
 		ImageView icon;
 		if(color)
 			icon = whiteIcons.get(pos);
@@ -412,7 +440,7 @@ public class App extends Application {
 			icon = blackIcons.get(pos);
 		if(icon == null){
 			System.err.println("No Point At: " + pos);
-			return;
+			return null;
 		}
 		RotateTransition rotate = new RotateTransition(Duration.seconds(duration),icon);
 		rotate.setByAngle(200);
@@ -426,10 +454,13 @@ public class App extends Application {
 			else
 				blackIcons.remove(pos);
 			layout.getChildren().remove(icon);
+			animations.remove(capture);
 		});
-		capture.play();
+		
+		animations.add(capture);
+		return capture;
 	}
-	private void unCapture(ImageView piece, double duration, Point pos){
+	private Transition unCapture(ImageView piece, double duration, Point pos){
 		double[] gp = getLayoutCoord(pos);
 		Line path = new Line(1, 1 , gp[0], gp[1]);
 		PathTransition move = new PathTransition();
@@ -445,9 +476,53 @@ public class App extends Application {
 		fade.setDuration(Duration.seconds(duration));
 
 		SequentialTransition uncap = new SequentialTransition(move, fade);
-		uncap.play();
-
+		
+		animations.add(uncap);
+		uncap.setOnFinished(e -> animations.remove(uncap));
+		return uncap;
 	}
+	
+	private Transition animateSwitch(Point p, Piece to, double duration, boolean color){
+		
+		ImageView remove;
+		if(color)
+			remove = whiteIcons.remove(p);
+		else
+			remove = blackIcons.remove(p);
+		if(remove == null){
+			System.err.println("Can't Switch piece at " + p + " because the icon isn't there");
+			return null;
+		}
+		layout.getChildren().remove(remove);
+		FadeTransition fadeOut = new FadeTransition();
+		fadeOut.setNode(remove);
+		fadeOut.setFromValue(1);
+		fadeOut.setToValue(0);
+		fadeOut.setDuration(Duration.seconds(duration));
+		
+		ImageView toIcon = initPiece(p, color, to);
+		if(color)
+			whiteIcons.put(p, toIcon);
+		else
+			blackIcons.put(p, toIcon);
+		layout.getChildren().add(toIcon);
+		resize();
+		toIcon.setVisible(true);
+		
+		FadeTransition fadeIn = new FadeTransition();
+		fadeIn.setNode(toIcon);
+		fadeIn.setFromValue(0);
+		fadeIn.setToValue(1);
+		fadeIn.setDuration(Duration.seconds(duration));
+		
+//		SequentialTransition switchPiece = new SequentialTransition(fadeOut, fadeIn);
+		ParallelTransition switchPiece = new ParallelTransition(fadeOut, fadeIn);
+		
+		animations.add(switchPiece);
+		switchPiece.setOnFinished(e -> animations.remove(switchPiece));
+		return switchPiece;
+	}
+	
 	/**
 	 * Gets the coordinate relative to the middle of the layout: (0,0) = Middle of window
 	 * @param p
@@ -499,8 +574,10 @@ public class App extends Application {
 			messages.gameOver();
 			return;
 		}
-		if(board.rules.mode.toString().equals("Computer vs Computer"))
-			return;
+		if(board.rules.mode.toString().equals("Computer vs Computer")){
+			System.out.println("CVC");
+			return;	
+		}
 		Point clicked;
 		if(p == null)
 			clicked = getPoint(x, y);
@@ -518,13 +595,13 @@ public class App extends Application {
 		else{
 			if(!playerHasPiece(clicked, board.turn)){	//Move
 				Move m = new Move(selected, clicked, board);
-				try{
-					move(m);
-				}catch (Exception e) {
-					System.err.println(e.getStackTrace());
-					board.print();
-					System.out.println("HERE");
+				if(m.piece instanceof Pawn && (m.to.y == 0 || m.to.y == 7)){
+					if(new Switcher().display())	//Queen
+						m.changedTo = new Queen(m.me);
+					else							//Knight
+						m.changedTo = new Knight(m.me);
 				}
+				move(m);
 				deSelect();
 			}
 			else{										//Reselected
@@ -535,8 +612,8 @@ public class App extends Application {
 	}
 
 	private void move(Move m){
-		if(board.history.size() > 50)
-			reset();
+		if(!allowance.get())
+			return;
 		if(playerHasPiece(m.from, !board.turn)){
 			messages.notYourTurn();
 			return;
@@ -555,22 +632,27 @@ public class App extends Application {
 					}
 					if(board.move(m)){	//Moves returns if capture piece
 						if (m.me){
-							animateCapture(m.to, Animation_Duration, false);
+							animateCapture(m.to, Animation_Duration, false).play();
 						}
 						else
-							animateCapture(m.to, Animation_Duration, true);
+							animateCapture(m.to, Animation_Duration, true).play();
 					}
-					
-					PathTransition move = animateMove(m.from, m.to, Animation_Duration);
-					move.setOnFinished(e -> {
-						if(board.getIsAIPlayer() && board.gameState == Board.State.INPROGRESS && allowance.get())
-							new AIMove(board).start();
-						animations.remove(move);
-					});
-//					int stop = 16;
+					Transition move = animateMove(m.from, m.to, Animation_Duration);
+					if(m.changedTo != null){	//Queen me
+						move.setOnFinished(e -> {
+							animations.remove(move);
+							respondToFinishSwitchMove();
+						});
+						
+					}
+					else
+						setOnAIMoveOnFinish(move);
+					move.play();
+
+//					int stop = 26;
 //					if(board.history.size() == stop - 2)
 //						board.rules.mode = GameMode.pvp;
-//					else if(board.history.size() == stop)
+//					else if(board.history.size() == stop+2)
 //						board.rules.mode = GameMode.cvc;
 					
 					
@@ -578,10 +660,10 @@ public class App extends Application {
 						boolean left = m.to.x < 3;
 						int y = m.me == board.rules.topPlayer ? 0 : 7;
 						if(left){
-							animateMove(new Point(0, y), new Point(2, y), Animation_Duration);
+							animateMove(new Point(0, y), new Point(2, y), Animation_Duration).play();
 						}
 						else{
-							animateMove(new Point(7, y), new Point(4, y), Animation_Duration);
+							animateMove(new Point(7, y), new Point(4, y), Animation_Duration).play();
 						}
 					}
 					initiateBoard();
@@ -593,7 +675,19 @@ public class App extends Application {
 			}
 		}
 	}
-
+	private void setOnAIMoveOnFinish(Transition t){
+		t.setOnFinished(e -> {
+			if(board.getIsAIPlayer() && board.gameState == Board.State.INPROGRESS && allowance.get() && (AIStatus == Status.RUNNING || board.rules.mode == GameMode.pvc))
+				new AIMove(board).start();
+			animations.remove(t);
+		});
+	}
+	private void respondToFinishSwitchMove(){
+		Move mm = board.history.peek();
+		Transition t = animateSwitch(mm.to, mm.changedTo, Animation_Duration, mm.me);
+		setOnAIMoveOnFinish(t);
+		t.play();
+	}
 	/**
 	 * Draws a box on the board to show the point is selected
 	 * @param p
@@ -621,26 +715,40 @@ public class App extends Application {
 	 * Resets the board
 	 */
 	private void reset(){
-		allowance.set(false);
+//		allowance.set(false);
 		messages.clear();
 		deSelect();
 		board.setUpBoard();
 		initiatePieces();
 		resize();
-		allowance.set(true);
-		for(PathTransition p: animations)
+		for(Transition p: animations)
 			p.stop();
 		animations.clear();
-		allowance.set(false);
+		allowance.set(true);
 		setupAnimation(Animation_Duration,0);
 	}
-
+	
+	private void startAllAnimations(){
+		for(Transition trans: animations)
+			if(!trans.getStatus().equals(Status.RUNNING))
+				trans.play();
+	}
 	private void undo(){
 		if(board.history.isEmpty())
 			System.out.println("Cant Undo");
 		else{
+			deSelect();
 			Move m = board.history.peek();
 			board.undo();
+			if(m.changedTo != null){
+				Transition t = animateSwitch(m.to, board.getPiece(m.from), Animation_Duration, m.me);
+				t.setOnFinished(e -> {
+					System.out.println("Finished Fade");
+					animations.remove(t);
+					startAllAnimations();
+				});
+				t.play();
+			}
 			animateMove(m.to, m.from, Animation_Duration);
 			if(m.getCapture() != null){
 				Piece piece = m.getCapture();
@@ -662,7 +770,8 @@ public class App extends Application {
 				else
 					animateMove(new Point(4, y), new Point(7, y), Animation_Duration);
 			}
-			board.print();
+			if(m.changedTo == null)
+				startAllAnimations();
 		}
 	}
 
@@ -725,14 +834,15 @@ public class App extends Application {
 			}
 			if(allowance.get() && move != null){
 				aisMove = move;
-				Runnable runn = new Runnable() {
-
-					@Override
-					public void run() {
-						move(aisMove);
+				Timeline tl = new Timeline(new KeyFrame(Duration.millis(1),evt -> {
+					move(aisMove);
+				}));
+				tl.play();
+				allowance.addListener(e -> {
+					if(!allowance.get()){
+						tl.stop();						
 					}
-				};
-				Platform.runLater(runn);
+				});
 			}
 
 		}

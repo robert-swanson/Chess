@@ -12,6 +12,7 @@ public class Move
 {
 	Board board;
 	Piece piece;
+	public Piece changedTo;
 	public Point from;
 	public Point to;
 	public boolean me;
@@ -23,6 +24,18 @@ public class Move
 	boolean firstMove;
 	public boolean castlingMove;
 
+	public Move(Move m){
+		this.board = m.board;
+		this.piece = m.piece;
+		this.changedTo = m.changedTo;
+		this.from = m.from;
+		this.to = m.to;
+		this.me = m.me;
+		this.capturedKing = m.capturedKing;
+		this.checks = m.checks;
+		this.firstMove = m.firstMove;
+		this.castlingMove = m.castlingMove;
+	}
 	public Move(Point from, Point to){
 		this(from, to, null);
 	}
@@ -34,6 +47,7 @@ public class Move
 		this.piece = board.getPiece(from);
 		this.firstMove = !piece.hasMoved;
 		this.castlingMove = false;
+		changedTo = null;
 		me = piece.isWhite();
 	}
 	
@@ -88,9 +102,10 @@ public class Move
 				board.putPiece(board.removePiece(new Point(7, y), me), new Point(4, y));
 			}
 		}
-		if(checks != null && checks && board.rules.cantCastleAfterCheck){
+		else if(changedTo != null)
+			board.putPiece(changedTo, to);
+		if(checks != null && checks && board.rules.cantCastleAfterCheck)
 			board.getKing(!me).hasMoved = true;
-		}
 		return captured;
 	}
 
@@ -121,6 +136,8 @@ public class Move
 				board.putPiece(board.removePiece(new Point(4, y), me), new Point(7, y));
 
 		}
+		if(changedTo != null)
+			board.putPiece(piece, from);
 		return capturedPiece;
 	}
 	
@@ -163,7 +180,12 @@ public class Move
 	public boolean equals(Object obj) {		//Ignores properties
 		if(obj instanceof Move){
 			Move m = (Move)obj;
-			return m.from.equals(from) && m.to.equals(to) && m.piece.equals(piece);
+			boolean t = changedTo != null;
+			boolean i = m.changedTo != null;
+			if(t && i)
+				t = changedTo.equals(m.changedTo);
+				
+			return m.from.equals(from) && m.to.equals(to) && m.piece.equals(piece) && t == i;
 		}
 		return false;
 	}

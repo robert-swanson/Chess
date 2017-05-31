@@ -44,17 +44,17 @@ public class AI {
 	Stratagy stratagy;
 	boolean player;
 	SimpleBooleanProperty allowance;
-	public boolean running;
+	boolean halt;
 	
 //	public SimpleIntegerProperty skill;
 	
 	public AI(Board board, boolean player, SimpleBooleanProperty a) {
+		halt = false;
 		allowance = a;
 		allowance.addListener(e -> respondToKill());
 		this.board = board;
 		this.player = player;
 		stratagy = new Stratagy();
-		running = false;
 	}
 	
 	/**
@@ -77,20 +77,20 @@ public class AI {
 	 * The best move
 	 */
 	public Move getBestMove(){
-		running = true;
 		boolean me = board.turn;
 		HashMap<Point, Piece> pieces = board.getPieces(me);
 		ArrayList<Move> moves = new ArrayList<>();
 		for(Point point: pieces.keySet().toArray(new Point[pieces.size()])){
 			Piece piece = board.getPiece(point, me);
 			moves.addAll(piece.getMoves(board, point));
-			if(!allowance.get())
+			
+			if(!allowance.get() || halt){
 				return null;
+			}
 		}
 		board.removeCheckMoves(moves);
-//		int rand = 14121 % moves.size();
-		int rand = (int) (Math.random() * moves.size());
-		running = false;
+		int rand = 100 % moves.size();
+//		int rand = (int) (Math.random() * moves.size());
 		return moves.get(rand);
 		
 		//TODO Make getBestMove
@@ -133,9 +133,11 @@ public class AI {
 	}
 	
 	public void respondToKill(){
-		while(running);
+		halt = !allowance.get();
 	}
-	
+	public void reactivate(){
+		halt = false;
+	}
 	public static void updateGameState(Board board){
 		boolean turn = board.turn;
 		if(turn){
@@ -152,7 +154,6 @@ public class AI {
 					break;
 			}
 			if(moves.size() == 0){
-				System.out.println("Game Over");
 				if(board.history.peek().putsPlayerInCheck(turn))
 					board.gameState = Board.State.BLACKWON;
 				else
