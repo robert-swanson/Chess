@@ -16,6 +16,7 @@ public class Move
 	public Point from;
 	public Point to;
 	public boolean me;
+	public double score;
 
 	private Piece capturedPiece;
 	boolean capturedKing;
@@ -92,20 +93,25 @@ public class Move
 		}
 		if(firstMove)
 			board.getPiece(to).hasMoved = true;
+		board.getPiece(to).moves++;
 		if(castlingMove){
 			boolean left = to.x < 3;
 			int y = me == board.rules.topPlayer ? 0 : 7;
 			if(left){
 				board.putPiece(board.removePiece(new Point(0, y), me), new Point(2, y));
+				board.getPiece(new Point(2, y)).moves++;
 			}
 			else{
 				board.putPiece(board.removePiece(new Point(7, y), me), new Point(4, y));
+				board.getPiece(new Point(4, y)).moves++;
+
 			}
 		}
 		else if(changedTo != null)
 			board.putPiece(changedTo, to);
 		if(checks != null && checks && board.rules.cantCastleAfterCheck)
 			board.getKing(!me).hasMoved = true;
+		board.history.push(this);
 		return captured;
 	}
 
@@ -138,6 +144,7 @@ public class Move
 		}
 		if(changedTo != null)
 			board.putPiece(piece, from);
+		board.history.pop();
 		return capturedPiece;
 	}
 	

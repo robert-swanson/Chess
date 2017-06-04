@@ -11,12 +11,14 @@ public abstract class Piece
 	protected int value;
 	protected boolean color;
 	public boolean hasMoved;
+	public int moves;
 
 	public Piece(int v, boolean c)
 	{
 		value = v;
 		color = c;
 		hasMoved = false;
+		moves = 0;
 	}
 
 	public boolean isWhite()
@@ -24,9 +26,12 @@ public abstract class Piece
 		return color;
 	}
 
-	public int getValue()
+	public double getValue()
 	{
-		return value;
+		double rv = value;
+		if(this instanceof Pawn)
+			rv = Math.round((1 + moves * .1)*100)/100;
+		return rv;
 	}
 	
 /*	protected void checkOptions(ArrayList<Move> moves, Board board){ //Removes moves where own piece already occupies

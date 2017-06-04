@@ -106,7 +106,7 @@ public class App extends Application {
 		}
 	}
 
-	final double Animation_Duration = .3; 
+	final double Animation_Duration = .2; 
 
 	Stage window;
 	Messages messages;
@@ -133,7 +133,7 @@ public class App extends Application {
 
 	@Override
 	public void start(Stage primaryStage) throws Exception {
-		AIStatus = Status.PAUSED;
+		AIStatus = Status.RUNNING;
 		animations = new ArrayList<>();
 		allowance = new SimpleBooleanProperty(true);
 		board = new Board(allowance);
@@ -185,6 +185,8 @@ public class App extends Application {
 		undo.setOnAction(e -> {
 			switch(board.rules.mode){
 			case cvc:
+				if(AIStatus == Status.PAUSED)
+					undo();
 				break;
 			case pvc:
 				undo();
@@ -211,7 +213,7 @@ public class App extends Application {
 				new AIMove(board).start();
 		});
 		
-		Button pausePlay = new Button("Play");
+		Button pausePlay = new Button(AIStatus == Status.PAUSED ? "Play" : "Pause");
 		pausePlay.setOnAction(e -> {
 			if(board.rules.mode == GameMode.cvc){
 				if(pausePlay.getText().equals("Play")){
@@ -405,16 +407,15 @@ public class App extends Application {
 	 */
 	private Transition animateMove(Point from, Point to, double duration){
 		ImageView icon;
-		System.out.println(blackIcons.get(new Point(2, 2)));
 		if(whiteIcons.containsKey(from)){
 			icon = whiteIcons.remove(from);
 			icon.setOnMouseClicked(e-> click(0,0,to));
-			System.out.println("white" + whiteIcons.put(to, icon));
+			whiteIcons.put(to, icon);
 		}
 		else if(blackIcons.containsKey(from)){
 			icon = blackIcons.remove(from);
 			icon.setOnMouseClicked(e-> click(0,0,to));
-			System.out.println("black" + blackIcons.put(to, icon));
+			blackIcons.put(to, icon);
 		}
 		else{
 			System.err.printf("Cannot Animate piece at %s because it isn't there. (Move: %s)\n",from.toString(), board.history.peek());
@@ -649,11 +650,11 @@ public class App extends Application {
 						setOnAIMoveOnFinish(move);
 					move.play();
 
-//					int stop = 26;
-//					if(board.history.size() == stop - 2)
-//						board.rules.mode = GameMode.pvp;
-//					else if(board.history.size() == stop+2)
-//						board.rules.mode = GameMode.cvc;
+					int stop = 67;
+					if(board.history.size() == stop)
+						AIStatus = Status.PAUSED;
+//					else if(board.history.size() == stop+5)
+//						AIStatus = Status.RUNNING;
 					
 					
 					if(m.castlingMove){
@@ -832,6 +833,8 @@ public class App extends Application {
 				e.printStackTrace(System.out); //TODO here
 				board.print();
 			}
+			if(move == null)
+				System.out.println("AI Returned Null");
 			if(allowance.get() && move != null){
 				aisMove = move;
 				Timeline tl = new Timeline(new KeyFrame(Duration.millis(1),evt -> {

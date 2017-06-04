@@ -334,6 +334,23 @@ public class Board {
 			moves.add(r);
 		}
 	}
+	
+	public boolean isInCheck(boolean player){
+		ArrayList<Point> points = new ArrayList<>();
+		if(player)
+			points.addAll(blackPieces.keySet());
+		else
+			points.addAll(whitePieces.keySet());
+		for(Point p: points){
+			Piece piece = getPiece(p);
+			for(Move move: piece.getMoves(this, p)){
+				if(move.capturedKing)
+					return true;
+			}
+		}
+		return false;
+	}
+	
 	@Override
 	public String toString() {
 		String out = "";

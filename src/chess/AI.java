@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 
+import chess.Board.State;
 import chess.pieces.Piece;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleIntegerProperty;
@@ -21,14 +22,17 @@ public class AI {
 		boolean iterativeDeepening;
 		int iterativedeepeningDepth;
 		
+		boolean addRand;
+		
 		public Stratagy() {
-			depth = 5;
+			depth = 2;
 			alphaBeta = true;
 			transpositionTable = false;
 			killerHeuristic =  false;
 			killerHeuristicDepth = 0;
 			iterativeDeepening = false;
 			iterativedeepeningDepth = 0;
+			addRand = false;
 		}
 		@Override
 		public String toString() {
@@ -45,8 +49,6 @@ public class AI {
 	boolean player;
 	SimpleBooleanProperty allowance;
 	boolean halt;
-	
-//	public SimpleIntegerProperty skill;
 	
 	public AI(Board board, boolean player, SimpleBooleanProperty a) {
 		halt = false;
@@ -78,26 +80,35 @@ public class AI {
 	 */
 	public Move getBestMove(){
 		boolean me = board.turn;
-		HashMap<Point, Piece> pieces = board.getPieces(me);
-		ArrayList<Move> moves = new ArrayList<>();
-		for(Point point: pieces.keySet().toArray(new Point[pieces.size()])){
-			Piece piece = board.getPiece(point, me);
-			moves.addAll(piece.getMoves(board, point));
-			
-			if(!allowance.get() || halt){
-				return null;
+		ArrayList<Move> moves = getMoves(me);
+		if(moves.size() == 0)
+			return null;
+		if(stratagy.depth == 0){	//Random Moves
+			randomize(moves);
+			return moves.get(0);
+		}
+		double alpha = -1000;
+		double beta = 1000;
+		for(Move m: moves){
+			m.doMove();
+			m.score = minimax(alpha, beta, me, 2);
+			System.out.println(m.score);
+			m.undoMove();
+			if(stratagy.alphaBeta){
+				if(alpha < m.score)
+					alpha = m.score;
+				if(alpha > beta){
+					updateGameState(board);
+					return getMaxMove(moves);
+				}
 			}
 		}
-		board.removeCheckMoves(moves);
-		int rand = 100 % moves.size();
-//		int rand = (int) (Math.random() * moves.size());
-		return moves.get(rand);
-		
-		//TODO Make getBestMove
+		updateGameState(board);
+		return getMaxMove(moves);
 	}
 	
 	/**
-	 * A recursive method that determines the score of a particiular move
+	 * A recursive method that determines the score of a particular move
 	 * @param alpha
 	 * The minimum value for move to be acceptable
 	 * @param beta
@@ -105,10 +116,115 @@ public class AI {
 	 * @return
 	 * The number score of the move
 	 */
-	private double minimax(double alpha, double beta){
+	private double minimax(double alpha, double beta, boolean me, int depth){
+		boolean maximizer = me == board.turn;
+		boolean aB = stratagy.alphaBeta;
+		if(depth >= stratagy.depth)
+			return score(me);
+		ArrayList<Move> moves = getMoves(board.turn);
+		for(Move m: moves){
+			m.doMove();
+			m.score = minimax(alpha, beta, me, depth+1);
+			m.undoMove();
+			if(aB && maximizer && alpha < m.score)
+				alpha = m.score;
+			else if(aB && beta < m.score)
+				beta = m.score;
+			if(aB && alpha > beta){
+				return (maximizer ? alpha : beta);
+			}
+		}
 		return 0;
 		//TODO Make minimax with alphabeta
+	}	
+
+	private Move getMaxMove(ArrayList<Move> moves){
+		if(moves.size() == 0)
+			return null;
+		boolean me = moves.get(0).me;
+		HashMap<Double, ArrayList<Move>> moveMap = new HashMap<>();
+		double highest = -1000;
+		double lowest = 1000;
+		for(Move m: moves){
+			Double key = m.score;
+			if(!moveMap.containsKey(key))
+				moveMap.put(key, new ArrayList<>());
+			moveMap.get(key).add(m);
+			if(key > highest)
+				highest = key;
+			if(key < lowest)
+				lowest = key;
+		}
+		while(highest >= lowest){
+			Number key = (Number)highest;
+			if(moveMap.containsKey(key)){
+				if(stratagy.addRand)
+					randomize(moveMap.get(key));
+				for(Move m: moveMap.get(key)){
+					if(m == null){
+						moves.remove(m);
+						continue;
+					}
+					if(!m.putsPlayerInCheck(me))
+						return m;
+					else
+						moves.remove(m);
+				}
+			}
+			highest-= .05;
+		}
+		return null;
 	}
+	
+	private Move getMinMove(ArrayList<Move> moves){
+		if(moves.size() == 0)
+			return null;
+		boolean me = moves.get(0).me;
+		HashMap<Number, ArrayList<Move>> moveMap = new HashMap<>();
+		double highest = Double.MIN_VALUE;
+		double lowest = Double.MAX_VALUE;
+		for(Move m: moves){
+			Number key = m.score;
+			if(!moveMap.containsKey(key))
+				moveMap.put(key, new ArrayList<>());
+			moveMap.get(key).add(m);
+			if(key.intValue() > highest)
+				highest = key.intValue();
+			if(key.intValue() < lowest)
+				lowest = key.intValue();
+		}
+		while(lowest <= highest){
+			Double key = (Double)lowest;
+			if(moveMap.containsKey(key)){
+				
+				if(stratagy.addRand)
+					randomize(moveMap.get(key));
+				for(Move m: moveMap.get(key)){
+					if(m == null){
+						moves.remove(m);
+						continue;
+					}
+					if(!m.putsPlayerInCheck(me))
+						return m;
+					else
+						moves.remove(m);
+				}
+			}
+			lowest++;
+		}
+		return null;
+	}
+	
+	private void randomize(ArrayList<Move> moves){
+		for(int i = 0; i < moves.size(); i++){
+			int rand = (int)(Math.random() * moves.size());
+			Move temp = moves.get(i);
+			moves.set(i, moves.get(rand));
+			moves.set(rand, temp);
+		}
+	}
+	
+	
 	
 	/**
 	 * Determines all the legal moves a particular player can make on the current board state
@@ -117,9 +233,17 @@ public class AI {
 	 * @return
 	 * An arrayList conataning all the legal moves
 	 */
-	private ArrayList<Move> getMoves(boolean player){
-		return new ArrayList<>();
-		//TODO Make dynamic getMoves
+	private ArrayList<Move> getMoves(boolean me){
+		HashMap<Point, Piece> pieces = board.getPieces(me);
+		ArrayList<Move> moves = new ArrayList<>();
+		for(Point point: pieces.keySet().toArray(new Point[pieces.size()])){
+			Piece piece = board.getPiece(point, me);
+			moves.addAll(piece.getMoves(board, point));
+			if(!allowance.get() || halt){
+				return null;
+			}
+		}
+		return moves;
 	}
 	
 	/**
@@ -127,8 +251,25 @@ public class AI {
 	 * @return
 	 * The total score in the perspective of the AI
 	 */
-	private double score(){
-		return 0;
+	private double score(boolean maximizingPlayer){
+		updateGameState(board);
+		
+		switch(board.gameState){
+		case BLACKWON:
+			return maximizingPlayer ? Integer.MIN_VALUE : Integer.MAX_VALUE;
+		case WHITEWON:
+			return maximizingPlayer ? Integer.MAX_VALUE : Integer.MIN_VALUE;
+		case STALEMATE:
+			return 0;
+		default:
+		}
+		
+		double score = 0;
+		for(Piece p: board.getPieces(maximizingPlayer).values())
+			score += p.getValue();
+		for(Piece p: board.getPieces(!maximizingPlayer).values())
+			score -= p.getValue();
+		return score;
 		//TODO Make score
 	}
 	
@@ -154,7 +295,7 @@ public class AI {
 					break;
 			}
 			if(moves.size() == 0){
-				if(board.history.peek().putsPlayerInCheck(turn))
+				if(board.isInCheck(turn))
 					board.gameState = Board.State.BLACKWON;
 				else
 					board.gameState = Board.State.STALEMATE;
@@ -176,7 +317,6 @@ public class AI {
 					break;
 			}
 			if(moves.size() == 0){
-				System.out.println("Game Over");
 				if(board.history.peek().putsPlayerInCheck(turn))
 					board.gameState = Board.State.WHITEWON;
 				else
