@@ -8,9 +8,9 @@ import chess.Point;
 
 public class Knight extends Piece
 {
-	public Knight(boolean c)
+	public Knight(boolean c, Point pos)
 	{
-		super(3, c);
+		super(3, c, pos);
 	}
 
 	public ArrayList<Move> getMoves(Board board, Point pos)

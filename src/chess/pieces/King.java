@@ -8,9 +8,9 @@ import chess.Point;
 
 public class King extends Piece
 {	
-	public King(boolean c)
+	public King(boolean c, Point pos)
 	{
-		super(100, c);
+		super(100, c, pos);
 		hasMoved = false;
 	}
 	

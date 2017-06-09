@@ -8,9 +8,9 @@ import chess.Point;
 
 public class Pawn extends Piece
 {
-	public Pawn(boolean c)
+	public Pawn(boolean c, Point pos)
 	{
-		super(1, c);
+		super(1, c, pos);
 		hasMoved = false;
 	}
 
@@ -63,8 +63,8 @@ public class Pawn extends Piece
 		if(m.to.y == 0 || m.to.y == 7){
 			Move q = new Move(m);
 			Move k  = new Move(m);
-			q.changedTo = new Queen(m.me);
-			k.changedTo = new Knight(m.me);
+			q.changedTo = new Queen(m.me, m.to);
+			k.changedTo = new Knight(m.me, m.to);
 			moves.add(q);
 			moves.add(k);
 		}

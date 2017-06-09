@@ -1,4 +1,7 @@
 package chess;
+import java.awt.Desktop;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -106,7 +109,8 @@ public class App extends Application {
 		}
 	}
 
-	final double Animation_Duration = .2; 
+	final double Animation_Duration = .3; 
+	final int stop = 185;
 
 	Stage window;
 	Messages messages;
@@ -133,7 +137,7 @@ public class App extends Application {
 
 	@Override
 	public void start(Stage primaryStage) throws Exception {
-		AIStatus = Status.RUNNING;
+		AIStatus = Status.PAUSED;
 		animations = new ArrayList<>();
 		allowance = new SimpleBooleanProperty(true);
 		board = new Board(allowance);
@@ -165,6 +169,20 @@ public class App extends Application {
 		buttons.setAlignment(Pos.CENTER);
 		buttons.setPadding(new Insets(10,0,10,0));
 
+		Button tree = new Button("Open Tree");
+		tree.setOnAction(e -> {
+			if(board.turn)
+				board.black.parent.print();
+			else
+				board.white.parent.print();
+			try {
+				Desktop.getDesktop().open(new File("ChessTree.txt"));
+			} catch (IOException e1) {
+				System.err.println("No File Named ChessTree.txt");
+				e1.printStackTrace();
+			}
+		});
+		
 		Button reset = new Button("Restart");
 		reset.setOnAction(e -> reset());
 
@@ -203,8 +221,8 @@ public class App extends Application {
 		Button sButton = new Button("Settings");
 		sButton.setOnAction(e -> {
 			SettingsView s = new SettingsView(board);
-			s.display();
-			reset();
+			if(s.display())
+				reset();
 		});
 		
 		Button stepT = new Button("Step");
@@ -230,7 +248,7 @@ public class App extends Application {
 		
 		
 		
-		buttons.getChildren().addAll(reset, sync, print, undo, sButton, pausePlay, stepT);
+		buttons.getChildren().addAll(reset, sync, print, undo, sButton, pausePlay, stepT, tree);
 
 
 		//Stack Pane
@@ -598,9 +616,9 @@ public class App extends Application {
 				Move m = new Move(selected, clicked, board);
 				if(m.piece instanceof Pawn && (m.to.y == 0 || m.to.y == 7)){
 					if(new Switcher().display())	//Queen
-						m.changedTo = new Queen(m.me);
+						m.changedTo = new Queen(m.me, m.to);
 					else							//Knight
-						m.changedTo = new Knight(m.me);
+						m.changedTo = new Knight(m.me, m.to);
 				}
 				move(m);
 				deSelect();
@@ -650,9 +668,8 @@ public class App extends Application {
 						setOnAIMoveOnFinish(move);
 					move.play();
 
-					int stop = 67;
-					if(board.history.size() == stop)
-						AIStatus = Status.PAUSED;
+//					if(board.history.size() == stop)
+//						AIStatus = Status.PAUSED;
 //					else if(board.history.size() == stop+5)
 //						AIStatus = Status.RUNNING;
 					

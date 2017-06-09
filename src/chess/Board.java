@@ -112,6 +112,9 @@ public class Board {
 
 	AI black;
 	AI white;
+	
+	King whiteKing;
+	King blackKing;
 
 	public RuleSet rules;
 	public Boolean allowance;
@@ -143,43 +146,70 @@ public class Board {
 		history = new Stack<>();
 
 		//Pawns
+		Point p;
 		for(int x = 0; x < 8; x++){
-			whitePieces.put(new Point(x, (topPlayer ? 1 : 6)), new Pawn(true));
-			blackPieces.put(new Point(x, (topPlayer ? 6 : 1)), new Pawn(false));
+			p = new Point(x, (topPlayer ? 1 : 6));
+			whitePieces.put(p, new Pawn(true,p));
+			p = new Point(x, (topPlayer ? 6 : 1));
+			blackPieces.put(p, new Pawn(false,p));
 		}
 
 		int whiteY = topPlayer ? 0 : 7;
 		int blackY = topPlayer ? 7 : 0;
 
-		whitePieces.put(new Point(0, whiteY), new Rook(true));
-		whitePieces.put(new Point(1, whiteY), new Knight(true));
-		whitePieces.put(new Point(2, whiteY), new Bishop(true));
+		p = new Point(0, whiteY);
+		whitePieces.put(p, new Rook(true, p));
+		p = new Point(1, whiteY);
+		whitePieces.put(p, new Knight(true, p));
+		p = new Point(2, whiteY);
+		whitePieces.put(p, new Bishop(true, p));
 		if(topPlayer){
-			whitePieces.put(new Point(3, whiteY), new Queen(true));
-			whitePieces.put(new Point(4, whiteY), new King(true));
+			p = new Point(3, whiteY);
+			whitePieces.put(p, new Queen(true, p));
+			p = new Point(4, whiteY);
+			whiteKing = new King(true, p);
+			whitePieces.put(p, whiteKing);
 		}
 		else{
-			whitePieces.put(new Point(3, whiteY), new King(true));
-			whitePieces.put(new Point(4, whiteY), new Queen(true));
+			p = new Point(3, whiteY);
+			whiteKing = new King(true, p);
+			whitePieces.put(p, whiteKing);
+			p = new Point(4, whiteY);
+			whitePieces.put(p, new Queen(true, p));
 		}
-		whitePieces.put(new Point(5, whiteY), new Bishop(true));
-		whitePieces.put(new Point(6, whiteY), new Knight(true));
-		whitePieces.put(new Point(7, whiteY), new Rook(true));
-
-		blackPieces.put(new Point(0, blackY), new Rook(false));
-		blackPieces.put(new Point(1, blackY), new Knight(false));
-		blackPieces.put(new Point(2, blackY), new Bishop(false));
+		p = new Point(5, whiteY);
+		whitePieces.put(p, new Bishop(true, p));
+		p = new Point(6, whiteY);
+		whitePieces.put(p, new Knight(true, p));
+		p = new Point(7, whiteY);
+		whitePieces.put(p, new Rook(true, p));
+		
+		p = new Point(0, blackY);
+		blackPieces.put(p, new Rook(false, p));
+		p = new Point(1, blackY);
+		blackPieces.put(p, new Knight(false, p));
+		p = new Point(2, blackY);
+		blackPieces.put(p, new Bishop(false, p));
 		if(topPlayer){
-			blackPieces.put(new Point(3, blackY), new Queen(false));
-			blackPieces.put(new Point(4, blackY), new Bishop(false));
+			p = new Point(3, blackY);
+			blackPieces.put(p, new Queen(false, p));
+			p = new Point(4, blackY);
+			blackKing = new King(false, p);
+			blackPieces.put(p, blackKing);
 		}
 		else{
-			blackPieces.put(new Point(3, blackY), new King(false));
-			blackPieces.put(new Point(4, blackY), new Queen(false));
+			p = new Point(3, blackY);
+			blackKing = new King(false, p);
+			blackPieces.put(p, blackKing);
+			p = new Point(4, blackY);
+			blackPieces.put(p, new Queen(false, p));
 		}
-		blackPieces.put(new Point(5, blackY), new Bishop(false));
-		blackPieces.put(new Point(6, blackY), new Knight(false));
-		blackPieces.put(new Point(7, blackY), new Rook(false));
+		p = new Point(5, blackY);
+		blackPieces.put(p, new Bishop(false, p));
+		p = new Point(6, blackY);
+		blackPieces.put(p, new Knight(false, p));
+		p = new Point(7, blackY);
+		blackPieces.put(p, new Rook(false, p));
 	}
 	
 
@@ -194,14 +224,13 @@ public class Board {
 		ArrayList<Move> moves = new ArrayList<>();
 		moves.add(m);
 		setCaptures(moves);
-		history.push(m);
 		boolean rv = m.doMove();
 		AI.updateGameState(this);
 		return rv;
 	}
 	
 	public Move undo(){
-		Move rv = history.pop();
+		Move rv = history.peek();
 		rv.undoMove();
 		return rv;
 	}
@@ -251,19 +280,28 @@ public class Board {
 		else
 			return null;
 	}
+//	public Point getPosition(Piece p){
+//		if(p.isWhite()){
+//			for(Point pos: whitePieces.keySet()){
+//				if(whitePieces.get(pos).equals(p))
+//					return pos;
+//			}
+//		}
+//		else{
+//			for(Point pos: blackPieces.keySet()){
+//				if(blackPieces.get(pos).equals(p))
+//					return pos;
+//			}
+//		}
+//		return null;
+//	}
 	public King getKing(boolean color){
 		if(color){
-			for(Piece p: whitePieces.values())
-				if(p instanceof King)
-					return (King)p;
+			return whiteKing;
 		}
 		else{
-			for(Piece p: blackPieces.values())
-				if(p instanceof King)
-					return (King)p;
+			return blackKing;
 		}
-		System.out.println("No King for player " + color);
-		return new King(false);
 	}
 	public void setCaptures(ArrayList<Move> moves){
 		for(Move m: moves){
@@ -370,6 +408,7 @@ public class Board {
 	public void print(){
 		System.out.println(this);
 		System.out.println(history.size() + ": " + history);
+		System.out.println(white.score(true, null));
 	}
 	public AI getAI(){
 		if(getIsAIPlayer())

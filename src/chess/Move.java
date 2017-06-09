@@ -2,8 +2,11 @@ package chess;
 
 import java.util.ArrayList;
 
+import com.sun.javafx.css.CascadingStyle;
+
 import chess.pieces.King;
 import chess.pieces.Piece;
+import chess.pieces.Rook;
 
 /**
  * Describes a move, the piece moving, and if a piece was captured
@@ -17,6 +20,7 @@ public class Move
 	public Point to;
 	public boolean me;
 	public double score;
+	public double progressScore;
 
 	private Piece capturedPiece;
 	boolean capturedKing;
@@ -91,6 +95,7 @@ public class Move
 			if(captured)
 				board.removePiece(to, !me);
 		}
+		piece.position = to;
 		if(firstMove)
 			board.getPiece(to).hasMoved = true;
 		board.getPiece(to).moves++;
@@ -98,13 +103,16 @@ public class Move
 			boolean left = to.x < 3;
 			int y = me == board.rules.topPlayer ? 0 : 7;
 			if(left){
-				board.putPiece(board.removePiece(new Point(0, y), me), new Point(2, y));
-				board.getPiece(new Point(2, y)).moves++;
+				Rook rook = (Rook)board.removePiece(new Point(0, y), me);
+				board.putPiece(rook, new Point(2, y));
+				rook.moves++;
+				rook.position = new Point(2, y);
 			}
 			else{
-				board.putPiece(board.removePiece(new Point(7, y), me), new Point(4, y));
-				board.getPiece(new Point(4, y)).moves++;
-
+				Rook rook = (Rook)board.removePiece(new Point(7, y), me);
+				board.putPiece(rook, new Point(4, y));
+				rook.moves++;
+				rook.position = new Point(4, y);
 			}
 		}
 		else if(changedTo != null)
@@ -121,6 +129,7 @@ public class Move
 	public Piece undoMove()
 	{
 		board.turn = !board.turn;
+		piece.position = from;
 		if(me && board.whitePieces.containsKey(to)){
 			board.whitePieces.put(from, board.whitePieces.remove(to));
 		}
@@ -136,11 +145,17 @@ public class Move
 		if(castlingMove){
 			boolean left = to.x < 4;
 			int y = me == board.rules.topPlayer ? 0 : 7;
-			if(left)
-				board.putPiece(board.removePiece(new Point(2, y), me), new Point(0, y));
-			else
-				board.putPiece(board.removePiece(new Point(4, y), me), new Point(7, y));
-
+			if(left){
+				Rook rook = (Rook)board.removePiece(new Point(2, y), me);
+				rook.position = new Point(0, y);
+				board.putPiece(rook, new Point(0, y));
+			}
+				
+			else{
+				Rook rook = (Rook)board.removePiece(new Point(4, y), me);
+				rook.position = new Point(7, y);
+				board.putPiece(rook, new Point(7, y));
+			}
 		}
 		if(changedTo != null)
 			board.putPiece(piece, from);
@@ -195,5 +210,18 @@ public class Move
 			return m.from.equals(from) && m.to.equals(to) && m.piece.equals(piece) && t == i;
 		}
 		return false;
+	}
+	
+	@Override
+	public int hashCode() {
+		int rv = (capturedPiece == null) ? 0 : capturedPiece.getPieceID();
+		rv += 10 * piece.getPieceID();
+		rv += 100 * to.y;
+		rv += 1000 * to.x;
+		rv += 10000 * from.y;
+		rv += 100000 * from.x;
+		rv += 1000000 * (firstMove ? 1 : 0);
+		rv *= me ? 1 : -1;
+		return rv;
 	}
 }

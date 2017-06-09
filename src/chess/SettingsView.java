@@ -22,6 +22,7 @@ public class SettingsView{
 	Stage window;
 	VBox layout = new VBox();
 	VBox stratagy = new VBox();
+	boolean mustRestartOnClose = false;
 
 	Board.RuleSet rules;
 	AI.Stratagy blackStratagy;
@@ -35,7 +36,7 @@ public class SettingsView{
 		App.SetUpVBox(layout);
 	}
 
-	public void display(){
+	public boolean display(){
 		//TODO Finish Initiating Settings into interface
 		//Window Init
 		window.initModality(Modality.APPLICATION_MODAL);
@@ -49,7 +50,6 @@ public class SettingsView{
 		ok.setAlignment(Pos.CENTER);
 		ok.setOnAction(e -> {
 			window.close();
-			
 		});
 
 
@@ -100,6 +100,7 @@ public class SettingsView{
 		topPlayer.getChildren().addAll(tpl,tp);
 		App.SetUpHBox(topPlayer);
 		tp.valueProperty().addListener(e -> {
+			mustRestartOnClose = true;
 			if(tp.getValue().equals("Black"))
 				rules.topPlayer = false;
 			else
@@ -177,6 +178,7 @@ public class SettingsView{
 		Scene s = new Scene(layout);
 		window.setScene(s);
 		window.showAndWait();
+		return mustRestartOnClose;
 	}
 
 	private void initStratagyView(Board.RuleSet.GameMode mode){

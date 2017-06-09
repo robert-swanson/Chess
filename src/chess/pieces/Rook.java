@@ -9,9 +9,9 @@ import chess.Point;
 public class Rook extends Piece
 {
 
-	public Rook(boolean c)
+	public Rook(boolean c, Point pos)
 	{
-		super(5, c);
+		super(5, c, pos);
 		hasMoved = false;
 	}
 

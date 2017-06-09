@@ -12,13 +12,15 @@ public abstract class Piece
 	protected boolean color;
 	public boolean hasMoved;
 	public int moves;
+	public Point position;
 
-	public Piece(int v, boolean c)
+	public Piece(int v, boolean c, Point pos)
 	{
 		value = v;
 		color = c;
 		hasMoved = false;
 		moves = 0;
+		position = pos;
 	}
 
 	public boolean isWhite()
@@ -26,11 +28,26 @@ public abstract class Piece
 		return color;
 	}
 
-	public double getValue()
+	public double getValue(int dist)
 	{
 		double rv = value;
-		if(this instanceof Pawn)
-			rv = Math.round((1 + moves * .1)*100)/100;
+		if(this instanceof Pawn){
+			switch(dist){
+			case 5:
+				return 2;
+			case 4:
+				return 1.5;
+			case 3:
+				return 1.25;
+			case 2:
+				return 1.2;
+			case 1:
+				return 1.1;
+			default:
+				return 1;
+			}
+		}
+			
 		return rv;
 	}
 	
@@ -72,5 +89,22 @@ public abstract class Piece
 		return obj.toString().equals(this.toString());
 	}
 	public abstract ArrayList<Move> getMoves(Board board, Point pos);
+	
+	public int getPieceID(){
+		if(this instanceof Pawn)
+			return 1;
+		if(this instanceof Rook)
+			return 2;
+		if(this instanceof Knight)
+			return 3;
+		if(this instanceof Bishop)
+			return 4;
+		if(this instanceof King)
+			return 5;
+		if(this instanceof Queen)
+			return 6;
+		else
+			return 0;
+	}
 
 }
