@@ -5,6 +5,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
@@ -16,6 +17,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 
 public class SettingsView{
@@ -38,11 +40,26 @@ public class SettingsView{
 
 	public boolean display(){
 		//TODO Finish Initiating Settings into interface
+		//TODO When done settings, input window dimensions for each possibilty
 		//Window Init
+		
+		double stageX = 0.0;
+		double stageY = 0.0;
+		for(Screen screen : Screen.getScreens()){
+			Rectangle2D bounds = screen.getBounds();
+			if(bounds.getWidth() == 1280.0 && bounds.getHeight() == 800){
+				stageX = bounds.getMinX()+bounds.getWidth();
+				stageY = bounds.getMinY()+bounds.getHeight();
+				}
+		}
+		window.setX(stageX);
+		window.setY(stageY);
 		window.initModality(Modality.APPLICATION_MODAL);
 		window.setTitle("Settings");
 		window.setMinWidth(300);
 		window.setMinHeight(80+layout.getChildren().size()*40);
+		
+		
 
 		//OK Button
 		Button ok = new Button("OK");
@@ -177,6 +194,7 @@ public class SettingsView{
 
 		Scene s = new Scene(layout);
 		window.setScene(s);
+		window.centerOnScreen();
 		window.showAndWait();
 		return mustRestartOnClose;
 	}
@@ -208,19 +226,32 @@ public class SettingsView{
 	}
 	
 	private void initAISpecifics(VBox layout, ComboBox<String> cPlayer){
-		//Depth
+				//Depth
 				HBox depth = new HBox();
 				Label dl = new Label("Depth");
 				TextField d = new TextField();
 				d.setText(""+getStrat(cPlayer.getValue()).depth);
 				depth.getChildren().addAll(dl,d);
 				App.SetUpHBox(depth);
-				
 				App.SetUpTextField(d);
+				
+				//Check Depth
+				HBox cDepth = new HBox();
+				Label cdl = new Label("Check Depth");
+				TextField cd = new TextField();
+				cd.setText(""+getStrat(cPlayer.getValue()).checkDepth);
+				cDepth.getChildren().addAll(cdl,cd);
+				App.SetUpHBox(cDepth);
+				App.SetUpTextField(cd);
+				
 
 				//AlphaBeta
 				CheckBox alphaBeta = new CheckBox("AlphaBeta");
 				alphaBeta.setSelected(getStrat(cPlayer.getValue()).alphaBeta);
+				
+				//Random Element
+				CheckBox random = new CheckBox("Add Random Element");
+				random.setSelected(getStrat(cPlayer.getValue()).addRand);
 
 				//Transposition Table
 				CheckBox transpositionTable = new CheckBox("Transposition Table");
@@ -252,17 +283,19 @@ public class SettingsView{
 				App.SetUpTextField(iDDepth);
 				
 				cPlayer.valueProperty().addListener(e -> {
-					editListeners(getStrat(cPlayer.getValue()), d, alphaBeta, transpositionTable, killerHeuristic, kHDepth, iterativeDeepening, iDDepth);
+					editListeners(getStrat(cPlayer.getValue()), d, cd, alphaBeta, random, transpositionTable, killerHeuristic, kHDepth, iterativeDeepening, iDDepth);
 				});
-				editListeners(getStrat(cPlayer.getValue()), d, alphaBeta, transpositionTable, killerHeuristic, kHDepth, iterativeDeepening, iDDepth);
+				editListeners(getStrat(cPlayer.getValue()), d, cd, alphaBeta, random, transpositionTable, killerHeuristic, kHDepth, iterativeDeepening, iDDepth);
 
-				stratagy.getChildren().addAll(depth,alphaBeta,transpositionTable, kH, iD);
+				stratagy.getChildren().addAll(depth, cDepth, alphaBeta, random, transpositionTable, kH, iD);
 	}
 
 	
 	private void editListeners(Stratagy strat, 
 			TextField depth, 
+			TextField cDepth, 
 			CheckBox alphaBeta, 
+			CheckBox rand,
 			CheckBox transpositionTable, 
 			CheckBox killerHeuristic, 
 			TextField kHDepth, 
@@ -277,9 +310,22 @@ public class SettingsView{
 				depth.setText(""+strat.depth);
 			
 		});
+		
+		cDepth.textProperty().addListener(e -> {
+			if(cDepth.getText().matches("\\d+")){
+				strat.checkDepth = Integer.parseInt(cDepth.getText());
+			}
+			else if(cDepth.getText().length() > 0)
+				cDepth.setText(""+strat.checkDepth);
+			
+		});
 
 		alphaBeta.selectedProperty().addListener(e -> {
 			strat.alphaBeta = alphaBeta.isSelected();
+		});
+
+		rand.selectedProperty().addListener(e -> {
+			strat.addRand = rand.isSelected();
 		});
 
 		transpositionTable.selectedProperty().addListener(e -> {

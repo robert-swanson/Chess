@@ -12,11 +12,6 @@ public class Rook extends Piece
 	public Rook(boolean c, Point pos)
 	{
 		super(5, c, pos);
-		hasMoved = false;
-	}
-
-	public boolean getHasMoved(){
-		return hasMoved;
 	}
 
 	public ArrayList<Move> getMoves(Board board, Point pos)

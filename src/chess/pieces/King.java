@@ -11,12 +11,8 @@ public class King extends Piece
 	public King(boolean c, Point pos)
 	{
 		super(100, c, pos);
-		hasMoved = false;
 	}
 	
-	public boolean getHasMoved(){
-		return hasMoved;
-	}
 
 	//Still to do
 	public ArrayList<Move> getMoves(Board board, Point pos)

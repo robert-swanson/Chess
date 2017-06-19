@@ -10,15 +10,74 @@ public abstract class Piece
 {
 	protected int value;
 	protected boolean color;
-	public boolean hasMoved;
+//	public boolean hasMoved;
 	public int moves;
 	public Point position;
 
+	public static Piece importPiece(String importString){
+		Piece me;
+		Boolean color;
+		Point pos;
+		String[] data = importString.split(":");
+		if(data.length != 4)
+			return null;
+		
+		//Position
+		if(data[1].matches("\\(\\d, \\d\\)")){
+			char x = data[1].charAt(1);
+			char y = data[1].charAt(4);
+			pos = new Point(Integer.parseInt(x+""),Integer.parseInt(""+y));
+		}
+		else
+			return null;
+		
+		//Color
+		if(data[2].equals("Black"))
+			color = false;
+		else if(data[2].equals("White"))
+			color = true;
+		else
+			return null;
+		
+		//Type
+		if(data[0].matches("\\d")){
+			switch(Integer.parseInt(data[0])){
+			case 0:
+				me = new King(color, pos);
+				break;
+			case 1:
+				me = new Pawn(color, pos);
+				break;
+			case 2:
+				me = new Rook(color, pos);
+				break;
+			case 3:
+				me = new Knight(color, pos);
+				break;
+			case 4:
+				me = new Bishop(color, pos);
+				break;
+			case 5:
+				me = new King(color, pos);
+				break;
+			case 6:
+				me = new Queen(color, pos);
+				break;
+			default:
+				return null;
+			}
+		}
+		else
+			return null;
+		
+		if(data[3].matches("\\d+"))
+			me.moves = Integer.parseInt(data[3]);
+		return me;
+	}
 	public Piece(int v, boolean c, Point pos)
 	{
 		value = v;
 		color = c;
-		hasMoved = false;
 		moves = 0;
 		position = pos;
 	}
@@ -105,6 +164,10 @@ public abstract class Piece
 			return 6;
 		else
 			return 0;
+	}
+	
+	public String export(){
+		return String.format("%d:%s:%s:%d", getPieceID(), position, color ? "White" : "Black", moves);
 	}
 
 }

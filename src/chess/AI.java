@@ -5,12 +5,10 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Iterator;
 
-import chess.Board.State;
 import chess.pieces.Piece;
 import javafx.beans.property.SimpleBooleanProperty;
-import javafx.beans.property.SimpleIntegerProperty;
+import javafx.beans.property.SimpleDoubleProperty;
 
 /**
  * Maneges the logic for the chess AI
@@ -24,12 +22,12 @@ public class AI {
 		int killerHeuristicDepth;
 		boolean iterativeDeepening;
 		int iterativedeepeningDepth;
+		int checkDepth;
 		
 		boolean addRand;
-		boolean checkCheckAtEnd;
 		
 		public Stratagy() {
-			depth = 2;
+			depth = 3;
 			alphaBeta = true;
 			transpositionTable = false;
 			killerHeuristic =  false;
@@ -37,16 +35,32 @@ public class AI {
 			iterativeDeepening = false;
 			iterativedeepeningDepth = 0;
 			addRand = false;
-			checkCheckAtEnd = false;
+			checkDepth = 1;
+		}
+		public Stratagy(String importString){
+			this();
+			String[] strat = importString.split(":");
+			if(strat.length != 4)
+				return;
+			depth = Integer.parseInt(strat[0]);
+			checkDepth = Integer.parseInt(strat[1]);
+			alphaBeta = Boolean.parseBoolean(strat[2]);
+			addRand = Boolean.parseBoolean(strat[3]);
 		}
 		@Override
 		public String toString() {
 		return String.format("Stratagy\n"
 				+ "Depth: %d\n"
+				+ "Check Depth: %d\n"
 				+ "AlphaBeta: %b\n"
+				+ "Add Random Element: %b\n"
 				+ "Transposition Table: %b\n"
 				+ "Killer Heuristic: %b Depth: %d\n"
-				+ "Iterative Deepening: %b Depth: %d\n",depth, alphaBeta, transpositionTable, killerHeuristic, killerHeuristicDepth, iterativeDeepening, iterativedeepeningDepth);
+				+ "Iterative Deepening: %b Depth: %d\n",depth, checkDepth, alphaBeta, addRand,  transpositionTable, killerHeuristic, killerHeuristicDepth, iterativeDeepening, iterativedeepeningDepth);
+		}
+		
+		public String export(){
+			return String.format("%d:%d:%b:%b", depth, checkDepth, alphaBeta, addRand);
 		}
 	}
 	Board board;
@@ -56,13 +70,20 @@ public class AI {
 	boolean halt;
 	ArrayList<Integer> bannedMoves;
 	int[] diagnostics;
+	int avBranchTotal;
+	int avBranchCount;
+	final int progressDepth = 1;
+	
+	SimpleDoubleProperty progress;
+	
+	public double confidence;
 	
 	//NODE
 	public PrintWriter logger;
 	public Node parent;
 
 	
-	public AI(Board board, boolean player, SimpleBooleanProperty a) {
+	public AI(Board board, boolean player, SimpleBooleanProperty a, SimpleDoubleProperty p) {
 		try {
 			logger = new PrintWriter("ChessTree.txt");
 		} catch (FileNotFoundException e1) {
@@ -76,6 +97,7 @@ public class AI {
 		this.player = player;
 		stratagy = new Stratagy();
 		bannedMoves = new ArrayList<>();
+		progress = p;
 	}
 	
 	/**
@@ -88,8 +110,13 @@ public class AI {
 	 * An arrayList containing all the legal moves
 	 */
 	public static ArrayList<Move> getLegalMoves(boolean player, Board board){
-		return new ArrayList<>();
-		//TODO Make static getLegalMoves
+		ArrayList<Move> moves = new ArrayList<>();
+		for(Point p: board.getPieces(player).keySet()){
+			moves.addAll(board.getPiece(p).getMoves(board, p));
+		}
+		board.addCastleMoves(moves, player);
+		board.removeCheckMoves(moves);
+		return moves;
 	}
 	
 	/**
@@ -98,6 +125,8 @@ public class AI {
 	 * The best move
 	 */
 	public Move getBestMove(){
+		progress.set(0.0);						//PROGRESS
+		board.startTimer();
 		diagnostics = new int[stratagy.depth];
 		parent = new Node(true);
 		
@@ -121,29 +150,31 @@ public class AI {
 		
 		Move best = moves.get(0);
 		diagnostics[0] = moves.size();
+		int index = 0;
+		double step = 1.0/moves.size();			//PROGRESS
 		for(Move m: moves){
 			Node child = new Node(false, m);	//NODE
-			
 			m.doMove();
-			m.score = minimax(alpha, beta, me, 2, child);
+			m.score = minimax(alpha, beta, me, 1, child, step);
 			best = setBest(best, m, true, true);
 			
 			child.score = m.score;				//NODE
 			parent.children.add(child);			//NODE
 				
 			m.undoMove();
+			index++;
 			if(stratagy.alphaBeta){
 				if(alpha < m.score)
 					alpha = m.score;
 				if(alpha > beta){
-					updateGameState(board);
+					progress.set(progress.get() + (moves.size()-index) * step); //PROGRESS
 					return best;
 				}
 			}
-		}
-		updateGameState(board);
-		printDiagnostics();
-		
+		}		
+		confidence = best.score;
+		board.endTimer();
+		progress.set(0.0);						//PROGRESS
 		return best;
 	}
 	
@@ -156,41 +187,50 @@ public class AI {
 	 * @return
 	 * The number score of the move
 	 */
-	private double minimax(double alpha, double beta, boolean me, int depth, Node parent){		//NODE
+	private double minimax(double alpha, double beta, boolean me, int depth, Node parent, double whole){		//NODE/PROGRESS
+		if(!allowance.get())
+			return 0;
 		boolean maximizer = me == board.turn;
 		boolean aB = stratagy.alphaBeta;
 		ArrayList<Move> moves = getMoves(board.turn);
-		if(depth > stratagy.depth || moves.isEmpty())
-			return score(me, null);
+		if(stratagy.checkDepth >= depth)
+			board.removeCheckMoves(moves);
+			
+		double step = whole/moves.size();			//PROGRESS
+		if(depth > stratagy.depth || moves.isEmpty()){
+			double score = score(me, null, moves);
+			return score;
+		}
 		Move best = moves.get(0);
-		diagnostics[depth-1] += moves.size();
+		int index = 0;
 		for(Move m: moves){
 			m.doMove();
+			Node child = new Node(!maximizer, m);					//NODE
+			m.score = minimax(alpha, beta, me, depth+1, child, step);
 			
-			Node child = new Node(maximizer, m);					//NODE
-			
-			m.score = minimax(alpha, beta, me, depth+1, child);
 			m.undoMove();
-			
+
 			child.score = m.score;									//NODE
 			parent.children.add(child);								//NODE
-			
-			setBest(best, m, maximizer, false);
+			best = setBest(best, m, maximizer, false);
 			if((maximizer && m.score > best.score)||(!maximizer && m.score < best.score))
 				best = m;
 			if(aB && maximizer && alpha < m.score)
 				alpha = m.score;
-			else if(aB && beta < m.score)
+			else if(aB && beta > m.score)
 				beta = m.score;
-			if(aB && alpha > beta){
+			if(aB && alpha >= beta){
+				if(depth <= progressDepth){
+					progress.set(progress.get() + (moves.size()-index) * step); //PROGRESS
+				}
 				return (maximizer ? alpha : beta);
 			}
+			index++;
+		}
+		if(depth == progressDepth){
+			progress.set(progress.get()+whole);						//PROGRESS
 		}
 		return best.score;
-//		if(maximizer)
-//			return getMaxMove(moves).score;
-//		return getMinMove(moves).score;
-		//TODO Make minimax with alphabeta
 	}
 	private Move setBest(Move a, Move b, boolean maximizer, boolean top){
 		if(maximizer){
@@ -250,7 +290,7 @@ public class AI {
 		}
 	}
 
-	private Move getMaxMove(ArrayList<Move> moves){
+/*	private Move getMaxMove(ArrayList<Move> moves){
 		if(moves.size() == 0)
 			return null;
 		boolean me = moves.get(0).me;
@@ -325,7 +365,7 @@ public class AI {
 		}
 		return null;
 	}
-	
+*/	
 	private void randomize(ArrayList<Move> moves){
 		for(int i = 0; i < moves.size(); i++){
 			int rand = (int)(Math.random() * moves.size());
@@ -342,7 +382,7 @@ public class AI {
 	 * @param player
 	 * The player
 	 * @return
-	 * An arrayList conataning all the legal moves
+	 * An arrayList containing all the legal moves
 	 */
 	private ArrayList<Move> getMoves(boolean me){
 		HashMap<Point, Piece> pieces = board.getPieces(me);
@@ -362,8 +402,8 @@ public class AI {
 	 * @return
 	 * The total score in the perspective of the AI
 	 */
-	public double score(boolean maximizingPlayer, Move m){
-		updateGameState(board);
+	public double score(boolean maximizingPlayer, Move m, ArrayList<Move> moves){
+		updateGameState(board, moves);
 		
 		switch(board.gameState){
 		case BLACKWON:
@@ -391,7 +431,7 @@ public class AI {
 			m.score = score;
 		
 		return score;
-		//TODO Make score
+
 	}
 	
 	public double progressScore(Move m){
@@ -410,52 +450,30 @@ public class AI {
 	public void reactivate(){
 		halt = false;
 	}
-	public static void updateGameState(Board board){
+	public static void updateGameState(Board board, ArrayList<Move> moves){
 		boolean turn = board.turn;
-		if(turn){
-			ArrayList<Move> moves = new ArrayList<>();
-			int s = board.whitePieces.size();
-			Point[] points = board.whitePieces.keySet().toArray(new Point[s]);
-			for(Point p: points){
-				ArrayList<Move> piecesMoves = new ArrayList<>();
-				Piece piece = board.getPiece(p, true);
-				piecesMoves.addAll(piece.getMoves(board, p));
-				board.removeCheckMoves(piecesMoves);
-				moves.addAll(piecesMoves);
-				if(moves.size() > 0)
-					break;
+			if(moves == null){
+				moves = new ArrayList<>();
+				int s = board.getPieces(turn).size();
+				Point[] points = board.getPieces(turn).keySet().toArray(new Point[s]);
+				for(Point p: points){
+					ArrayList<Move> piecesMoves = new ArrayList<>();
+					Piece piece = board.getPiece(p, turn);
+					piecesMoves.addAll(piece.getMoves(board, p));
+					board.removeCheckMoves(piecesMoves);
+					moves.addAll(piecesMoves);
+					if(moves.size() > 0)
+						break;
+				}
 			}
 			if(moves.size() == 0){
 				if(board.isInCheck(turn))
-					board.gameState = Board.State.BLACKWON;
+					board.gameState = turn ? Board.State.BLACKWON : Board.State.WHITEWON;
 				else
 					board.gameState = Board.State.STALEMATE;
 			}
 			else
 				board.gameState = Board.State.INPROGRESS;
-		}
-		else{
-			ArrayList<Move> moves = new ArrayList<>();
-			int s = board.blackPieces.size();
-			Point[] points = board.blackPieces.keySet().toArray(new Point[s]);
-			for(Point p: points){
-				ArrayList<Move> piecesMoves = new ArrayList<>();
-				Piece piece = board.getPiece(p, false);
-				piecesMoves.addAll(piece.getMoves(board, p));
-				board.removeCheckMoves(piecesMoves);
-				moves.addAll(piecesMoves);
-				if(moves.size() > 0)
-					break;
-			}
-			if(moves.size() == 0){
-				if(board.history.peek().putsPlayerInCheck(turn))
-					board.gameState = Board.State.WHITEWON;
-				else
-					board.gameState = Board.State.STALEMATE;
-			}
-			else
-				board.gameState = Board.State.INPROGRESS;
-		}
 	}
 	public static Double fixFloatIssues(Double n){
 		return Double.parseDouble(String.format("%.2f", n));
@@ -464,8 +482,8 @@ public class AI {
 		System.out.println("Diagnostics:");
 		System.out.printf("Depth 0, Branching Factor: %d\n",diagnostics[0]);
 		int totalNodes = diagnostics[0];
-		int avBranchTotal = 0;
-		int avBranchCount = 0;
+		avBranchTotal = 0;
+		avBranchCount = 0;
 		for(int d = 1; d < diagnostics.length; d++){
 			double branch = (double)diagnostics[d]/diagnostics[d-1];
 			System.out.printf("Depth %d, Nodes: %d, Average Branching Factor: %.3f\n", d, diagnostics[d], branch);
@@ -530,7 +548,7 @@ public class AI {
 					logger.print("L_____");
 				else
 					logger.print("|-----");
-				logger.printf("%s: Score: %(.2f, Move: %s %s\n",child.maximizing ? "MAX" : "MIN", child.score, (!maximizing ? "Black" : "White"), child.move); //Flipped because its the children
+				logger.printf("%s: Score: %(.2f, Move: %s %s\n",child.maximizing ? "MAX" : "MIN", child.score, (maximizing ? "Black" : "White"), child.move); //Flipped because its the children
 									
 				child.print(indent+1,max,nLasts);
 			}

@@ -2,8 +2,6 @@ package chess;
 
 import java.util.ArrayList;
 
-import com.sun.javafx.css.CascadingStyle;
-
 import chess.pieces.King;
 import chess.pieces.Piece;
 import chess.pieces.Rook;
@@ -50,7 +48,10 @@ public class Move
 		this.to = to;
 		this.board = board;
 		this.piece = board.getPiece(from);
-		this.firstMove = !piece.hasMoved;
+		if(this == null || piece == null){
+			System.out.println("HERE");
+		}
+		this.firstMove = !(piece.moves > 0);
 		this.castlingMove = false;
 		changedTo = null;
 		me = piece.isWhite();
@@ -78,7 +79,6 @@ public class Move
 			return false;
 
 		return false;
-		// TODO validateMove
 	}
 
 	/**
@@ -96,8 +96,6 @@ public class Move
 				board.removePiece(to, !me);
 		}
 		piece.position = to;
-		if(firstMove)
-			board.getPiece(to).hasMoved = true;
 		board.getPiece(to).moves++;
 		if(castlingMove){
 			boolean left = to.x < 3;
@@ -118,7 +116,7 @@ public class Move
 		else if(changedTo != null)
 			board.putPiece(changedTo, to);
 		if(checks != null && checks && board.rules.cantCastleAfterCheck)
-			board.getKing(!me).hasMoved = true;
+			board.getKing(!me).moves = 1;
 		board.history.push(this);
 		return captured;
 	}
@@ -130,6 +128,7 @@ public class Move
 	{
 		board.turn = !board.turn;
 		piece.position = from;
+		piece.moves--;
 		if(me && board.whitePieces.containsKey(to)){
 			board.whitePieces.put(from, board.whitePieces.remove(to));
 		}
@@ -139,21 +138,23 @@ public class Move
 		if(capturedPiece != null)
 			board.putPiece(capturedPiece, to);
 		if(firstMove)
-			board.getPiece(from).hasMoved = false;
+			board.getPiece(from).moves = 0;
 		if(checks != null && checks)
-			board.getKing(!me).hasMoved = false;
+			board.getKing(!me).moves = 0;
 		if(castlingMove){
 			boolean left = to.x < 4;
 			int y = me == board.rules.topPlayer ? 0 : 7;
 			if(left){
 				Rook rook = (Rook)board.removePiece(new Point(2, y), me);
 				rook.position = new Point(0, y);
+				rook.moves--;
 				board.putPiece(rook, new Point(0, y));
 			}
 				
 			else{
 				Rook rook = (Rook)board.removePiece(new Point(4, y), me);
 				rook.position = new Point(7, y);
+				rook.moves--;
 				board.putPiece(rook, new Point(7, y));
 			}
 		}
@@ -175,7 +176,7 @@ public class Move
 			for(Move move: piece.getMoves(board, p)){
 				if(move.capturedKing){
 					undoMove();
-					if(board.rules.cantCastleAfterCheck && !board.getKing(!me).hasMoved)
+					if(board.rules.cantCastleAfterCheck && !(board.getKing(!me).moves > 0))
 						checks = true;
 					return true;
 				}
@@ -195,6 +196,8 @@ public class Move
 		{
 			rv += String.format(", Captured %s", capturedPiece.toString());
 		}
+		if (castlingMove)
+			rv += ", Castling Move";
 		return rv;
 	}
 	

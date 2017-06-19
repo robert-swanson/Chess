@@ -11,20 +11,9 @@ public class Pawn extends Piece
 	public Pawn(boolean c, Point pos)
 	{
 		super(1, c, pos);
-		hasMoved = false;
 	}
 
-	public void updateHasMoved()
-	{
-		hasMoved = true;
-	}
 
-	public void resetHasMoved()
-	{
-		hasMoved = false;
-	}
-
-	//TODO check if in bounds
 	public ArrayList<Move> getMoves(Board board, Point pos)
 	{
 		boolean up = board.rules.topPlayer != this.color;
@@ -53,7 +42,7 @@ public class Pawn extends Piece
 		if(forwardO == null && forward.isInBoard()){
 			Move m = new Move(pos, forward,board);
 			addSwitch(m, moves);
-			if(!hasMoved && jumpO == null)
+			if(!(this.moves > 0) && jumpO == null)
 				moves.add(new Move(pos, jump, board));
 		}
 		board.setCaptures(moves);

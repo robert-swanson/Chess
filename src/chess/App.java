@@ -2,14 +2,18 @@ package chess;
 import java.awt.Desktop;
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+
+import javax.swing.ImageIcon;
 
 import chess.Board.RuleSet.GameMode;
 import chess.pieces.Knight;
 import chess.pieces.Pawn;
 import chess.pieces.Piece;
 import chess.pieces.Queen;
+import javafx.animation.Animation.Status;
 import javafx.animation.FadeTransition;
 import javafx.animation.KeyFrame;
 import javafx.animation.ParallelTransition;
@@ -18,18 +22,23 @@ import javafx.animation.RotateTransition;
 import javafx.animation.SequentialTransition;
 import javafx.animation.Timeline;
 import javafx.animation.Transition;
-import javafx.animation.Animation.Status;
 import javafx.application.Application;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.value.ObservableValue;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextField;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
@@ -37,6 +46,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Line;
 import javafx.scene.text.Font;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
@@ -85,9 +95,7 @@ public class App extends Application {
 			fade.stop();
 			updateTimeLine(d);
 			label.setOpacity(1);
-			label.setText(message);	//FIXME Labeled
-			if(!message.equals("Check"))
-				System.out.println(message);
+			label.setText(message);
 			tl.play();
 		}
 		private void fade(){
@@ -110,7 +118,7 @@ public class App extends Application {
 	}
 
 	final double Animation_Duration = .3; 
-	final int stop = 185;
+	final int stop = -1;
 
 	Stage window;
 	Messages messages;
@@ -125,6 +133,7 @@ public class App extends Application {
 	SimpleBooleanProperty allowance;
 	int running;
 	ArrayList<Transition> animations;
+	SimpleDoubleProperty progress;
 
 	Point selected;
 
@@ -137,39 +146,71 @@ public class App extends Application {
 
 	@Override
 	public void start(Stage primaryStage) throws Exception {
+		progress = new SimpleDoubleProperty(0.0);
 		AIStatus = Status.PAUSED;
 		animations = new ArrayList<>();
 		allowance = new SimpleBooleanProperty(true);
-		board = new Board(allowance);
-		board = new Board(allowance);
+		board = new Board(allowance, progress);
+		board = new Board(allowance, progress);
 		whiteIcons = new HashMap<>();
 		blackIcons = new HashMap<>();
 
 		//Graphics
 		Label mess = new Label();
 		mess.setFont(new Font("Ubuntu Mono", 24));
+		
+		HBox.setMargin(mess, new Insets(10,10,0,10));
+		
+		VBox top = new VBox(10);
 		HBox messBox = new HBox(mess);
-		HBox.setMargin(mess, new Insets(20,10,20,10));
-
+		ProgressBar progressBar = new ProgressBar();
+		VBox.setMargin(progressBar, new Insets(10,10,0,10));
+		progressBar.prefWidthProperty().bind(top.widthProperty());
+		top.setAlignment(Pos.CENTER);
+		progressBar.progressProperty().bind(progress);
+		top.getChildren().addAll(progressBar,messBox);
+		
 		messBox.setAlignment(Pos.CENTER);
 		messages = new Messages(mess);
 
+		double stageX = 0.0;
+		double stageY = 0.0;
+		for(Screen screen : Screen.getScreens()){
+			Rectangle2D bounds = screen.getBounds();
+			if(bounds.getWidth() == 1280.0 && bounds.getHeight() == 800){
+				stageX = bounds.getMinX()+bounds.getWidth();
+				stageY = bounds.getMinY()+bounds.getHeight();
+				}
+		}
 		window = primaryStage;
+		window.setX(stageX);
+		window.setY(stageY);
 		window.setTitle("Chess");
-		window.setWidth(1000);
-		window.setHeight(1000);
+		window.setWidth(800);
+		window.setHeight(750);
 		window.setMinHeight(550);
 		window.setMinWidth(450);
-
+		
+		try {
+	        URL iconURL = App.class.getResource("Black_King.png");
+	        java.awt.Image image = new ImageIcon(iconURL).getImage();
+	        com.apple.eawt.Application.getApplication().setDockIconImage(image);
+	    } catch (Exception e) {
+	        // Won't work on Windows or Linux.
+	    }
+		
+		System.out.println(window.getIcons().size());
 		//Initialize
 
 
+		//Progress Bar
+		
 		//Buttons
 		HBox buttons = new HBox(10);
 		buttons.setAlignment(Pos.CENTER);
 		buttons.setPadding(new Insets(10,0,10,0));
 
-		Button tree = new Button("Open Tree");
+		Button tree = new Button("Tree");
 		tree.setOnAction(e -> {
 			if(board.turn)
 				board.black.parent.print();
@@ -186,7 +227,7 @@ public class App extends Application {
 		Button reset = new Button("Restart");
 		reset.setOnAction(e -> reset());
 
-		Button sync = new Button("Syncronize");
+		Button sync = new Button("Sync");
 		sync.setOnAction(e -> {
 			initiatePieces();
 			resize();
@@ -196,7 +237,6 @@ public class App extends Application {
 		Button print = new Button("Print");
 		print.setOnAction(e -> {
 			board.print();
-			System.out.println(animations);
 		});
 
 		Button undo = new Button("Undo");
@@ -223,6 +263,9 @@ public class App extends Application {
 			SettingsView s = new SettingsView(board);
 			if(s.display())
 				reset();
+			System.out.println(board.rules);
+			System.out.println(board.white.stratagy);
+			System.out.println(board.black.stratagy);
 		});
 		
 		Button stepT = new Button("Step");
@@ -237,18 +280,37 @@ public class App extends Application {
 				if(pausePlay.getText().equals("Play")){
 					pausePlay.setText("Pause");
 					AIStatus = Status.RUNNING;
+					allowance.set(true);
 				}
 				else{
 					pausePlay.setText("Play");
 					AIStatus = Status.PAUSED;
+					allowance.set(false);
 				}
 				new AIMove(board).start();
 			}
 		});
 		
+		Button copy = new Button("Copy");
+		copy.setOnAction(e -> {
+			ClipboardContent content = new ClipboardContent();
+			content.putString(board.exportToString());
+			Clipboard.getSystemClipboard().setContent(content);
+			messages.message("Copied", Duration.seconds(1));
+		});
+		
+		Button load = new Button("Load");
+		load.setOnAction(e -> {
+			String content = Clipboard.getSystemClipboard().getString();
+			System.out.println(content);
+			board = new Board(allowance, content, progress);
+			initiatePieces();
+			resize();
+			setupAnimation(.0001, 0);
+		});
 		
 		
-		buttons.getChildren().addAll(reset, sync, print, undo, sButton, pausePlay, stepT, tree);
+		buttons.getChildren().addAll(reset, undo, sButton, print, tree, pausePlay, stepT, sync, copy, load);
 
 
 		//Stack Pane
@@ -270,7 +332,7 @@ public class App extends Application {
 		BorderPane masterLayout = new BorderPane();
 		masterLayout.setCenter(layout);
 		masterLayout.setBottom(buttons);
-		masterLayout.setTop(messBox);
+		masterLayout.setTop(top);
 
 		Scene board = new Scene(masterLayout);
 		board.setFill(Color.LIGHTGREY);
@@ -287,6 +349,7 @@ public class App extends Application {
 
 		resize();
 		setupAnimation(Animation_Duration,0);
+		window.centerOnScreen();
 	}
 	/**
 	 * Draws the board on the canvas
@@ -642,6 +705,8 @@ public class App extends Application {
 			if(f == null)
 				System.err.printf("No Piece At %s\n", m.from);
 			else{
+				boolean printScoreLater = board.rules.mode == GameMode.pvc && board.getIsAIPlayer();
+				
 				ArrayList<Move> moves = f.getMoves(board, m.from);
 				int i = moves.indexOf(m);
 				if(i >= 0 && !moves.get(i).putsPlayerInCheck(m.me)){
@@ -668,8 +733,8 @@ public class App extends Application {
 						setOnAIMoveOnFinish(move);
 					move.play();
 
-//					if(board.history.size() == stop)
-//						AIStatus = Status.PAUSED;
+					if(board.history.size() == stop)
+						AIStatus = Status.PAUSED;
 //					else if(board.history.size() == stop+5)
 //						AIStatus = Status.RUNNING;
 					
@@ -689,6 +754,9 @@ public class App extends Application {
 						messages.gameState = board.gameState;
 						messages.gameOver();
 					}
+					if(printScoreLater)
+						messages.message(String.format("Score is %.2f", (board.turn ? board.black : board.white).confidence), Duration.seconds(2));
+					board.updateIcon();
 				}
 			}
 		}
@@ -733,6 +801,8 @@ public class App extends Application {
 	 * Resets the board
 	 */
 	private void reset(){
+		board.avCount = 0;
+		board.avTotal = 0;
 //		allowance.set(false);
 		messages.clear();
 		deSelect();
@@ -808,6 +878,9 @@ public class App extends Application {
 		}
 		return board.blackPieces.containsKey(p);
 	}
+	
+	
+	
 	@Override
 	public String toString() {
 		return board.toString();
@@ -844,14 +917,19 @@ public class App extends Application {
 		public void run() {
 			AI ai = board.getAI();
 			Move move = null;
+			long start = System.nanoTime();
 			try{
 				move = ai.getBestMove();
 			}catch (Exception e) {
-				e.printStackTrace(System.out); //TODO here
-				board.print();
+				if(!allowance.get()){
+					System.out.println("Calculation Interrupted By User");
+					return;
+				}
+				System.out.println("Calculation Failed");
+				return;
 			}
-			if(move == null)
-				System.out.println("AI Returned Null");
+			System.out.printf("Move %d took %.2e nanoUnits\n", board.history.size()+1, (double)(System.nanoTime()-start));
+
 			if(allowance.get() && move != null){
 				aisMove = move;
 				Timeline tl = new Timeline(new KeyFrame(Duration.millis(1),evt -> {

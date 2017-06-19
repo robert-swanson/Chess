@@ -1,9 +1,13 @@
 package chess;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Stack;
 
+import javax.swing.ImageIcon;
+
+import chess.AI.Stratagy;
 import chess.pieces.Bishop;
 import chess.pieces.King;
 import chess.pieces.Knight;
@@ -12,6 +16,8 @@ import chess.pieces.Piece;
 import chess.pieces.Queen;
 import chess.pieces.Rook;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleDoubleProperty;
+import javafx.scene.control.ProgressBar;
 
 /**
  * Manages the black and white pieces
@@ -64,6 +70,21 @@ public class Board {
 		
 		TimeLimit timeLimit;
 
+		public RuleSet(String importString){
+			this();
+			String[] sa = importString.split(":");
+			if(sa.length != 3)
+				return;
+			int mode = Integer.parseInt(sa[0]);
+			int top = Integer.parseInt(sa[1]);
+			int comp = Integer.parseInt(sa[2]);
+			if(mode == 0)
+				this.mode = GameMode.pvp;
+			else if(mode == 1)
+				this.mode = GameMode.pvc;
+			else
+				this.mode = GameMode.cvc;
+			}
 		public RuleSet() {
 			mode = GameMode.cvc;
 			cantCastleThroughCheck = true;
@@ -81,6 +102,21 @@ public class Board {
 				+ "Top Player: %s\n"
 				+ "Computer Player: %s\n"
 				+ "Time Limit: %s\n", mode, cantCastleThroughCheck, cantCastleAfterCheck, (topPlayer ? "White" : "Black"), (computerPlayer ? "White" : "Black"), timeLimit);
+		}
+		public String export(){
+			int m = -1;
+			switch(mode){
+			case pvp:
+				m = 0;
+				break;
+			case pvc:
+				m = 1;
+				break;
+			case cvc:
+				m = 2;
+				break;
+			}
+			return String.format("%d:%d:%d", m, topPlayer ? 1 : 0, computerPlayer ? 1 : 0);
 		}
 	}
 	public enum State{
@@ -121,19 +157,58 @@ public class Board {
 
 	public Stack<Move> history;
 	public State gameState;
+	public boolean winning;
 
 	public boolean turn;
+	
+	private long startTime;
+	
+	long avTotal = 0;
+	long avCount = 0;
 
 	/**
 	 * Initailizes the pieces on the board according to what player is on the top
 	 * @param topPlayer
 	 */
-	public Board(SimpleBooleanProperty allowance) {
-		black = new AI(this, false, allowance);
-		white = new AI(this, true, allowance);
+	public Board(SimpleBooleanProperty allowance, SimpleDoubleProperty p) {
+		black = new AI(this, false, allowance, p);
+		white = new AI(this, true, allowance, p);
 		rules = new RuleSet();
 		setUpBoard();
 		gameState = State.INPROGRESS;
+		winning = false;
+	}
+	
+	public Board(SimpleBooleanProperty allowance, String importString, SimpleDoubleProperty p){
+		this(allowance, p);
+		String[] input = importString.split("_");
+		if(input.length != 8 || !input[0].equals("$$$") || ! input[7].equals("$$$")){
+			System.out.println("Import Failed");
+			return;
+		}
+		//Pieces
+		whitePieces = new HashMap<>();
+		blackPieces = new HashMap<>();
+		String[] pieces = input[1].split("-");
+		for(String piece: pieces){
+			Piece n = Piece.importPiece(piece);
+			whitePieces.put(n.position, n);
+		}
+		pieces = input[2].split("-");
+		for(String piece: pieces){
+			Piece n = Piece.importPiece(piece);
+			blackPieces.put(n.position, n);
+		}
+		
+		//Turn
+		turn = input[3].equals("White");
+		
+		//Rules
+		rules = new RuleSet(input[4]);
+		
+		//Stratagy
+		white.stratagy = white.new Stratagy(input[5]);
+		black.stratagy = black.new Stratagy(input[6]);
 	}
 	
 	public void setUpBoard(){
@@ -221,11 +296,11 @@ public class Board {
 	 * The ending position of the piece
 	 */
 	public boolean move(Move m){
-		ArrayList<Move> moves = new ArrayList<>();
-		moves.add(m);
-		setCaptures(moves);
+//		ArrayList<Move> moves = new ArrayList<>();
+//		moves.add(m);
+//		setCaptures(moves);
 		boolean rv = m.doMove();
-		AI.updateGameState(this);
+		AI.updateGameState(this,null);
 		return rv;
 	}
 	
@@ -328,12 +403,12 @@ public class Board {
 	public void addCastleMoves(ArrayList<Move> moves, boolean color){
 		int y = rules.topPlayer==color ? 0 : 7;
 		King king = getKing(color);
-		if(king.hasMoved)
+		if(king.moves > 0)
 			return;
 		
 		boolean validL = true;
 		Piece left = getPiece(new Point(0, y), color);
-		if(left == null || !(left instanceof Rook) || left.hasMoved)
+		if(left == null || !(left instanceof Rook) || left.moves > 0)
 			validL = false;
 		for(int x = 2; x > 0 && validL; x--){
 			if(getWhoOccupiesAt(new Point(x, y)) != null)
@@ -348,7 +423,7 @@ public class Board {
 		
 		boolean validR = true;
 		Piece right = getPiece(new Point(7, y), color);
-		if(right == null || !(right instanceof Rook) || right.hasMoved)
+		if(right == null || !(right instanceof Rook) || right.moves > 0)
 			validR = false;
 		for(int x = 4; x < 7 && validR; x++){
 			if(getWhoOccupiesAt(new Point(x, y)) != null)
@@ -407,8 +482,6 @@ public class Board {
 	}
 	public void print(){
 		System.out.println(this);
-		System.out.println(history.size() + ": " + history);
-		System.out.println(white.score(true, null));
 	}
 	public AI getAI(){
 		if(getIsAIPlayer())
@@ -424,5 +497,68 @@ public class Board {
 		if(rules.computerPlayer == turn)
 			return true;
 		return false;
+	}
+	public void startTimer(){
+		startTime = System.nanoTime();
+		
+	}
+	public void endTimer(){
+		avTotal += (System.nanoTime()-startTime);
+		avCount++;
+	}
+	public void printTimer(String name){
+		System.out.printf("Task: %s, NanoSecs: %.2e\n", name, (double)(avTotal/avCount));
+	}
+	public void updateIcon(){
+		
+		boolean w;
+		if(turn)
+			w = black.score(false, null, null) < 0;
+		else
+			w = white.score(true, null, null) > 0;
+		if(w != winning){
+			winning = w;
+			try {
+				String s = winning ? "White_King.png" : "Black_King.png";
+		        URL iconURL = App.class.getResource(s);
+		        java.awt.Image image = new ImageIcon(iconURL).getImage();
+		        com.apple.eawt.Application.getApplication().setDockIconImage(image);
+		    } catch (Exception e) {
+		        // Won't work on Windows or Linux.
+		    }
+		}
+	}
+	
+	public String exportToString(){
+		String rv = "$$$_";
+		for(Piece p: whitePieces.values()){
+			rv += p.export()+"-";
+		}
+		rv += "_";
+		for(Piece p: blackPieces.values()){
+			rv += p.export()+"-";
+		}
+		rv += "_";
+		rv += turn ? "White" : "Black";
+		rv += "_";
+		rv += rules.export() + "_";
+		rv += white.stratagy.export() + "_";
+		rv += black.stratagy.export() + "_$$$";
+
+		return rv;
+	}
+	
+	public void doPositionCheck(){
+		for(Point p: whitePieces.keySet()){
+			Piece piece = whitePieces.get(p);
+			if(!p.equals(piece.position))
+				System.out.printf("%s at %s thinks it's at %s\n",piece,p,piece.position);
+		}
+		for(Point p: blackPieces.keySet()){
+			Piece piece = blackPieces.get(p);
+			if(!p.equals(piece.position))
+				System.out.printf("%s at %s thinks it's at %s\n",piece,p,piece.position);
+		}
+		System.out.println("Check Complete");
 	}
 }
