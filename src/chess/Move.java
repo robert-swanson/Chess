@@ -9,7 +9,7 @@ import chess.pieces.Rook;
 /**
  * Describes a move, the piece moving, and if a piece was captured
  */
-public class Move
+public class Move implements Comparable<Move>
 {
 	Board board;
 	Piece piece;
@@ -215,6 +215,7 @@ public class Move
 		return false;
 	}
 	
+	
 	@Override
 	public int hashCode() {
 		int rv = (capturedPiece == null) ? 0 : capturedPiece.getPieceID();
@@ -226,5 +227,9 @@ public class Move
 		rv += 1000000 * (firstMove ? 1 : 0);
 		rv *= me ? 1 : -1;
 		return rv;
+	}
+	@Override
+	public int compareTo(Move o) {
+		return (int)(score - o.score);
 	}
 }

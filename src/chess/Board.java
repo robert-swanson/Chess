@@ -7,7 +7,6 @@ import java.util.Stack;
 
 import javax.swing.ImageIcon;
 
-import chess.AI.Stratagy;
 import chess.pieces.Bishop;
 import chess.pieces.King;
 import chess.pieces.Knight;
@@ -17,7 +16,6 @@ import chess.pieces.Queen;
 import chess.pieces.Rook;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
-import javafx.scene.control.ProgressBar;
 
 /**
  * Manages the black and white pieces
@@ -84,6 +82,8 @@ public class Board {
 				this.mode = GameMode.pvc;
 			else
 				this.mode = GameMode.cvc;
+			topPlayer = top == 1;
+			computerPlayer = comp == 1;
 			}
 		public RuleSet() {
 			mode = GameMode.cvc;
@@ -399,6 +399,13 @@ public class Board {
 				itr.remove();
 		}
 	}
+	public void removeCastleOutOfCheck(ArrayList<Move> moves, boolean color){
+		for(Move m: moves.toArray(new Move[moves.size()])){
+			if(m.castlingMove && isInCheck(color)){
+					moves.remove(m);
+			}
+		}
+	}
 	
 	public void addCastleMoves(ArrayList<Move> moves, boolean color){
 		int y = rules.topPlayer==color ? 0 : 7;
@@ -482,6 +489,8 @@ public class Board {
 	}
 	public void print(){
 		System.out.println(this);
+		System.out.printf("%d moves\n", history.size());
+		printTimer("Average Runtime");
 	}
 	public AI getAI(){
 		if(getIsAIPlayer())
@@ -560,5 +569,21 @@ public class Board {
 				System.out.printf("%s at %s thinks it's at %s\n",piece,p,piece.position);
 		}
 		System.out.println("Check Complete");
+	}
+	public int hashCode(int[][] keys) {	//Zobrist Hash
+		int hash = 0;
+		for(Piece p : whitePieces.values()){
+			int pos = p.position.x + p.position.y*8;
+			int id = p.getPieceHash();
+			hash ^= keys[pos][id];
+		}
+		for(Piece p : blackPieces.values()){
+			int pos = p.position.x + p.position.y*8;
+			int id = p.getPieceHash();
+			hash ^= keys[pos][id];
+		}
+		if(turn)
+			hash ^= 100;
+		return hash;
 	}
 }

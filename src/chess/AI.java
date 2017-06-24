@@ -4,7 +4,9 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 import chess.pieces.Piece;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -29,13 +31,13 @@ public class AI {
 		public Stratagy() {
 			depth = 3;
 			alphaBeta = true;
-			transpositionTable = false;
+			transpositionTable = true;
 			killerHeuristic =  false;
 			killerHeuristicDepth = 0;
-			iterativeDeepening = false;
-			iterativedeepeningDepth = 0;
-			addRand = false;
-			checkDepth = 1;
+			iterativeDeepening = true;
+			iterativedeepeningDepth = 3;
+			addRand = true;
+			checkDepth = 2;
 		}
 		public Stratagy(String importString){
 			this();
@@ -72,17 +74,22 @@ public class AI {
 	int[] diagnostics;
 	int avBranchTotal;
 	int avBranchCount;
-	final int progressDepth = 1;
+	final int progressDepth = 2;
 	
 	SimpleDoubleProperty progress;
 	
 	public double confidence;
+	public int[][] keys;
+	HashMap<Integer, Double>[] transpositionTable;
+	Move best;
+	
 	
 	//NODE
 	public PrintWriter logger;
 	public Node parent;
 
 	
+	@SuppressWarnings("unchecked")
 	public AI(Board board, boolean player, SimpleBooleanProperty a, SimpleDoubleProperty p) {
 		try {
 			logger = new PrintWriter("ChessTree.txt");
@@ -98,6 +105,14 @@ public class AI {
 		stratagy = new Stratagy();
 		bannedMoves = new ArrayList<>();
 		progress = p;
+		
+		transpositionTable = new HashMap[stratagy.depth];
+		keys = new int[64][16];
+		for(int pos = 0; pos < 64; pos++){
+			for(int i = 0; i < 16; i++){
+				keys[pos][i] = ThreadLocalRandom.current().nextInt();
+			}
+		}
 	}
 	
 	/**
@@ -124,7 +139,17 @@ public class AI {
 	 * @return
 	 * The best move
 	 */
+	@SuppressWarnings("unchecked")
 	public Move getBestMove(){
+		if(stratagy.iterativeDeepening){
+			return iterativeGetBestMove();
+		}
+//		if(transpositionTable.length != stratagy.depth)
+		transpositionTable = new HashMap[stratagy.depth];
+		for(int d = 0; d < stratagy.depth; d++){
+//			if(transpositionTable[d] == null)
+			transpositionTable[d] = new HashMap<>();
+		}
 		progress.set(0.0);						//PROGRESS
 		board.startTimer();
 		diagnostics = new int[stratagy.depth];
@@ -148,20 +173,22 @@ public class AI {
 		double alpha = -1000;
 		double beta = 1000;
 		
-		Move best = moves.get(0);
+		best = moves.get(0);
 		diagnostics[0] = moves.size();
 		int index = 0;
 		double step = 1.0/moves.size();			//PROGRESS
 		for(Move m: moves){
 			Node child = new Node(false, m);	//NODE
+			child.alpha = alpha;
+			child.beta = beta;
 			m.doMove();
-			m.score = minimax(alpha, beta, me, 1, child, step);
+			m.score = minimax(alpha, beta, me, 1, stratagy.depth, child, step);
+			m.undoMove();
 			best = setBest(best, m, true, true);
 			
 			child.score = m.score;				//NODE
 			parent.children.add(child);			//NODE
 				
-			m.undoMove();
 			index++;
 			if(stratagy.alphaBeta){
 				if(alpha < m.score)
@@ -174,7 +201,6 @@ public class AI {
 		}		
 		confidence = best.score;
 		board.endTimer();
-		progress.set(0.0);						//PROGRESS
 		return best;
 	}
 	
@@ -187,27 +213,41 @@ public class AI {
 	 * @return
 	 * The number score of the move
 	 */
-	private double minimax(double alpha, double beta, boolean me, int depth, Node parent, double whole){		//NODE/PROGRESS
-		if(!allowance.get())
-			return 0;
+	private double minimax(double alpha, double beta, boolean me, int depth, int maxDepth, Node parent, double whole){		//NODE/PROGRESS
 		boolean maximizer = me == board.turn;
 		boolean aB = stratagy.alphaBeta;
 		ArrayList<Move> moves = getMoves(board.turn);
-		if(stratagy.checkDepth >= depth)
+		
+		
+		if(maxDepth >= depth)
 			board.removeCheckMoves(moves);
 			
 		double step = whole/moves.size();			//PROGRESS
-		if(depth > stratagy.depth || moves.isEmpty()){
+		if(depth > maxDepth || moves.isEmpty()){
 			double score = score(me, null, moves);
 			return score;
 		}
+		if(stratagy.iterativeDeepening && depth != maxDepth && !(depth > stratagy.iterativedeepeningDepth))
+			sortMoves(moves, depth);
 		Move best = moves.get(0);
 		int index = 0;
 		for(Move m: moves){
-			m.doMove();
+			if(!allowance.get() && best != null)
+				return best.score;
 			Node child = new Node(!maximizer, m);					//NODE
-			m.score = minimax(alpha, beta, me, depth+1, child, step);
-			
+			child.alpha = alpha;									//NODE
+			child.beta = beta;										//NODE
+			m.doMove();
+			int hash = board.hashCode(keys);
+			if(stratagy.transpositionTable && (!stratagy.iterativeDeepening || depth > stratagy.iterativedeepeningDepth) && transpositionTable[depth-1].containsKey(hash)){
+				m.score = transpositionTable[depth-1].get(hash);
+				child.table = true;
+			}
+			else{
+				m.score = minimax(alpha, beta, me, depth+1, maxDepth, child, step);
+			}
+			if(stratagy.transpositionTable)
+				tranpositionAdd(depth-1, hash, m.score);
 			m.undoMove();
 
 			child.score = m.score;									//NODE
@@ -217,13 +257,16 @@ public class AI {
 				best = m;
 			if(aB && maximizer && alpha < m.score)
 				alpha = m.score;
-			else if(aB && beta > m.score)
+			else if(aB && !maximizer && beta > m.score)
 				beta = m.score;
-			if(aB && alpha >= beta){
+			if(aB && (alpha > beta || (alpha == beta && !(alpha == best.score)))){
 				if(depth <= progressDepth){
 					progress.set(progress.get() + (moves.size()-index) * step); //PROGRESS
 				}
-				return (maximizer ? alpha : beta);
+				child.pruned = true;
+				best = m;
+				return m.score;
+//				return (maximizer ? alpha : beta);
 			}
 			index++;
 		}
@@ -231,6 +274,89 @@ public class AI {
 			progress.set(progress.get()+whole);						//PROGRESS
 		}
 		return best.score;
+	}
+	@SuppressWarnings("unchecked")
+	private Move iterativeGetBestMove(){
+		transpositionTable = new HashMap[stratagy.depth];
+		best = null;
+		for(int d = 1; d <= stratagy.depth; d++){
+			if(!allowance.get() && best != null)
+				return best;
+			boolean finalCalc = (d > stratagy.iterativedeepeningDepth);
+			for(int de = 0; de < stratagy.depth; de++){		//Transposition Table
+				if(transpositionTable[de] == null)
+				transpositionTable[de] = new HashMap<>();
+			}
+			
+			progress.set(0.0);								//PROGRESS
+			parent = new Node(true);						//Node
+			
+			boolean me = board.turn;						//Moves
+			ArrayList<Move> moves = getMoves(me);
+			board.removeCheckMoves(moves);
+			updateBanned(4, 2);
+			for(Move m: moves.toArray(new Move[moves.size()]))
+				if(bannedMoves.contains(m.hashCode()) && moves.size() > 1){
+					moves.remove(m);
+					System.out.println("Broke Cycle");
+				}
+			if(moves.size() == 0)
+				return null;
+			if(best == null)
+				best = moves.get(0);
+			if(stratagy.depth == 0){						//Random Moves
+				randomize(moves);
+				return moves.get(0);
+			}
+			double alpha = -1000;							//Alpha-Beta
+			double beta = 1000;
+			
+			int index = 0;
+			double step = 1.0/moves.size();			//PROGRESS
+			for(Move m: moves){
+				if(!allowance.get())
+					return best;
+				Node child = new Node(false, m);	//NODE
+				child.alpha = alpha;
+				child.beta = beta;
+				m.doMove();
+				m.score = minimax(alpha, beta, me, 1, finalCalc ? stratagy.depth : d, child, step);
+				m.undoMove();
+				best = setBest(best, m, true, true);
+				
+				child.score = m.score;				//NODE
+				parent.children.add(child);			//NODE
+					
+				index++;
+				if(stratagy.alphaBeta){
+					if(alpha < m.score)
+						alpha = m.score;
+					if(alpha > beta){
+						progress.set(progress.get() + (moves.size()-index) * step); //PROGRESS
+						return best;
+					}
+				}
+			}		
+			confidence = best.score;
+			if(finalCalc)
+				break;
+		}
+		return best;
+	}
+	private void sortMoves(ArrayList<Move> moves, int depth){
+		for(int i = 0; i < moves.size(); i++){
+			Move m = moves.get(i);
+			m.doMove();
+			int hash = board.hashCode(keys);
+			m.undoMove();
+			Double score = transpositionTable[depth].get(hash);
+			if(score != null){
+				m.score = score;
+			}
+			else
+				return;
+		}
+		Collections.sort(moves);
 	}
 	private Move setBest(Move a, Move b, boolean maximizer, boolean top){
 		if(maximizer){
@@ -375,6 +501,15 @@ public class AI {
 		}
 	}
 	
+	private void tranpositionAdd(int depth, int hash, double value){
+		HashMap<Integer, Double> map = transpositionTable[depth];
+		if(map.size()>100000){
+			map.remove(map.keySet().iterator().next());
+		}
+		if(map.size() > 100001)
+			System.out.println("BIG");
+		map.put(hash, value);
+	}
 	
 	
 	/**
@@ -387,12 +522,10 @@ public class AI {
 	private ArrayList<Move> getMoves(boolean me){
 		HashMap<Point, Piece> pieces = board.getPieces(me);
 		ArrayList<Move> moves = new ArrayList<>();
+		board.removeCastleOutOfCheck(moves, me);
 		for(Point point: pieces.keySet().toArray(new Point[pieces.size()])){
 			Piece piece = board.getPiece(point, me);
 			moves.addAll(piece.getMoves(board, point));
-			if(!allowance.get() || halt){
-				return null;
-			}
 		}
 		return moves;
 	}
@@ -493,15 +626,27 @@ public class AI {
 		}
 		System.out.printf("Total Nodes: %d, Total Average Branching Factor: %.3f\n", totalNodes, ((double)avBranchTotal)/((double)avBranchCount));
 	}
+	@Override
+	public String toString() {
+		return board.toString();
+	}
 	class Node{
 		ArrayList<Node> children;
 		double score = 0;
 		String move = "";
 		boolean maximizing;
+		boolean table;
+		boolean pruned;
+		double alpha;
+		double beta;
 
 		Node(boolean maximizing){
 			this.maximizing = maximizing;
 			children = new ArrayList<Node>();
+			table = false;
+			pruned = false;
+			alpha = -999;
+			beta = 999;
 		}
 		Node(boolean maximizing, Move m){
 			move = m.toString();
@@ -545,10 +690,16 @@ public class AI {
 					}
 				}
 				if(isLast)
-					logger.print("L_____");
+					logger.print("L___");
 				else
-					logger.print("|-----");
-				logger.printf("%s: Score: %(.2f, Move: %s %s\n",child.maximizing ? "MAX" : "MIN", child.score, (maximizing ? "Black" : "White"), child.move); //Flipped because its the children
+					logger.print("|---");
+				for(int i = 0; i < 3-indent; i++){
+					if(isLast)
+						System.out.print("_");
+					else
+						System.out.print("_");
+				}
+				logger.printf("%s, Score: %.1f, Alpha:%.1f, Beta:%.1f, Move: %s, %s%s\n",child.maximizing ? "MAX" : "MIN", child.score, child.alpha, child.beta, child.move, child.table ? "Table" : "", child.pruned ? "XXX" : ""); //Flipped because its the children
 									
 				child.print(indent+1,max,nLasts);
 			}

@@ -5,8 +5,11 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Stack;
 
 import javax.swing.ImageIcon;
+
+import com.sun.org.glassfish.gmbal.AMXMetadata;
 
 import chess.Board.RuleSet.GameMode;
 import chess.pieces.Knight;
@@ -25,7 +28,6 @@ import javafx.animation.Transition;
 import javafx.application.Application;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
-import javafx.beans.value.ObservableValue;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
@@ -80,6 +82,7 @@ public class App extends Application {
 			message("It's not your turn",Duration.seconds(3));
 		}
 		public void gameOver(){
+			progress.set(0.0);
 			if(gameState == Board.State.BLACKWON)
 				message("Black Won!", Duration.INDEFINITE);
 			else if(gameState == Board.State.WHITEWON)
@@ -117,7 +120,7 @@ public class App extends Application {
 		}
 	}
 
-	final double Animation_Duration = .3; 
+	final double Animation_Duration = .2; 
 	final int stop = -1;
 
 	Stage window;
@@ -139,7 +142,10 @@ public class App extends Application {
 
 	Move aisMove;
 	Status AIStatus;
-	
+
+	ArrayList<Integer> histHash = new ArrayList<>();
+
+
 	public static void main(String[] args){
 		launch(args);
 	}
@@ -158,9 +164,8 @@ public class App extends Application {
 		//Graphics
 		Label mess = new Label();
 		mess.setFont(new Font("Ubuntu Mono", 24));
-		
 		HBox.setMargin(mess, new Insets(10,10,0,10));
-		
+
 		VBox top = new VBox(10);
 		HBox messBox = new HBox(mess);
 		ProgressBar progressBar = new ProgressBar();
@@ -169,7 +174,7 @@ public class App extends Application {
 		top.setAlignment(Pos.CENTER);
 		progressBar.progressProperty().bind(progress);
 		top.getChildren().addAll(progressBar,messBox);
-		
+
 		messBox.setAlignment(Pos.CENTER);
 		messages = new Messages(mess);
 
@@ -180,7 +185,7 @@ public class App extends Application {
 			if(bounds.getWidth() == 1280.0 && bounds.getHeight() == 800){
 				stageX = bounds.getMinX()+bounds.getWidth();
 				stageY = bounds.getMinY()+bounds.getHeight();
-				}
+			}
 		}
 		window = primaryStage;
 		window.setX(stageX);
@@ -190,21 +195,20 @@ public class App extends Application {
 		window.setHeight(750);
 		window.setMinHeight(550);
 		window.setMinWidth(450);
-		
+
 		try {
-	        URL iconURL = App.class.getResource("Black_King.png");
-	        java.awt.Image image = new ImageIcon(iconURL).getImage();
-	        com.apple.eawt.Application.getApplication().setDockIconImage(image);
-	    } catch (Exception e) {
-	        // Won't work on Windows or Linux.
-	    }
-		
-		System.out.println(window.getIcons().size());
+			URL iconURL = App.class.getResource("Black_King.png");
+			java.awt.Image image = new ImageIcon(iconURL).getImage();
+			com.apple.eawt.Application.getApplication().setDockIconImage(image);
+		} catch (Exception e) {
+			// Won't work on Windows or Linux.
+		}
+
 		//Initialize
 
 
 		//Progress Bar
-		
+
 		//Buttons
 		HBox buttons = new HBox(10);
 		buttons.setAlignment(Pos.CENTER);
@@ -223,6 +227,13 @@ public class App extends Application {
 				e1.printStackTrace();
 			}
 		});
+
+		Button reanimate = new Button("Show Last");
+		reanimate.setOnAction(e -> {
+			Move last = board.history.peek();
+			undo(.001);
+			move(last);
+		});
 		
 		Button reset = new Button("Restart");
 		reset.setOnAction(e -> reset());
@@ -238,24 +249,26 @@ public class App extends Application {
 		print.setOnAction(e -> {
 			board.print();
 		});
+		
 
 		Button undo = new Button("Undo");
 		undo.setOnAction(e -> {
 			switch(board.rules.mode){
 			case cvc:
 				if(AIStatus == Status.PAUSED)
-					undo();
+					undo(Animation_Duration);
 				break;
 			case pvc:
-				undo();
-				undo();
+				undo(Animation_Duration);
+				undo(Animation_Duration);
 				break;
 			case pvp:
-				undo();
+				undo(Animation_Duration);
 				break;
 			default:
 				break;
 			}
+			initiateBoard();
 		});
 
 		Button sButton = new Button("Settings");
@@ -267,30 +280,29 @@ public class App extends Application {
 			System.out.println(board.white.stratagy);
 			System.out.println(board.black.stratagy);
 		});
-		
+
 		Button stepT = new Button("Step");
 		stepT.setOnAction(e -> {
 			if(board.getIsAIPlayer())
 				new AIMove(board).start();
 		});
-		
+
 		Button pausePlay = new Button(AIStatus == Status.PAUSED ? "Play" : "Pause");
 		pausePlay.setOnAction(e -> {
 			if(board.rules.mode == GameMode.cvc){
-				if(pausePlay.getText().equals("Play")){
+				if(AIStatus == Status.PAUSED){
 					pausePlay.setText("Pause");
 					AIStatus = Status.RUNNING;
-					allowance.set(true);
+					new AIMove(board).start();
 				}
 				else{
 					pausePlay.setText("Play");
 					AIStatus = Status.PAUSED;
 					allowance.set(false);
 				}
-				new AIMove(board).start();
 			}
 		});
-		
+
 		Button copy = new Button("Copy");
 		copy.setOnAction(e -> {
 			ClipboardContent content = new ClipboardContent();
@@ -298,19 +310,25 @@ public class App extends Application {
 			Clipboard.getSystemClipboard().setContent(content);
 			messages.message("Copied", Duration.seconds(1));
 		});
-		
+		Button hist = new Button("History");
+		hist.setOnAction(e -> {
+			ClipboardContent content = new ClipboardContent();
+			content.putString(board.history.toString());
+			Clipboard.getSystemClipboard().setContent(content);
+			messages.message(String.format("Copied History to Clipboard, Size: %d",board.history.size()), Duration.seconds(1));
+		});
+
 		Button load = new Button("Load");
 		load.setOnAction(e -> {
 			String content = Clipboard.getSystemClipboard().getString();
-			System.out.println(content);
 			board = new Board(allowance, content, progress);
 			initiatePieces();
 			resize();
 			setupAnimation(.0001, 0);
 		});
-		
-		
-		buttons.getChildren().addAll(reset, undo, sButton, print, tree, pausePlay, stepT, sync, copy, load);
+
+
+		buttons.getChildren().addAll(reset, undo, reanimate, sButton, print, hist, tree, pausePlay, stepT, sync);
 
 
 		//Stack Pane
@@ -443,7 +461,7 @@ public class App extends Application {
 		points.addAll(board.blackPieces.keySet());
 		points.addAll(board.whitePieces.keySet());
 		int i = 0;
-		
+
 		for(Point p:points){
 			ImageView icon;
 			if(whiteIcons.containsKey(p)){
@@ -474,7 +492,7 @@ public class App extends Application {
 				});
 			move.play();
 		}
-		
+
 	}
 
 	/**
@@ -509,7 +527,7 @@ public class App extends Application {
 		move.setPath(path);
 		move.setDuration(Duration.seconds(duration));
 		move.setNode(icon);
-		
+
 		animations.add(move);
 		move.setOnFinished(e -> animations.remove(move));
 		return move;
@@ -538,7 +556,7 @@ public class App extends Application {
 			layout.getChildren().remove(icon);
 			animations.remove(capture);
 		});
-		
+
 		animations.add(capture);
 		return capture;
 	}
@@ -558,14 +576,14 @@ public class App extends Application {
 		fade.setDuration(Duration.seconds(duration));
 
 		SequentialTransition uncap = new SequentialTransition(move, fade);
-		
+
 		animations.add(uncap);
 		uncap.setOnFinished(e -> animations.remove(uncap));
 		return uncap;
 	}
-	
+
 	private Transition animateSwitch(Point p, Piece to, double duration, boolean color){
-		
+
 		ImageView remove;
 		if(color)
 			remove = whiteIcons.remove(p);
@@ -581,7 +599,7 @@ public class App extends Application {
 		fadeOut.setFromValue(1);
 		fadeOut.setToValue(0);
 		fadeOut.setDuration(Duration.seconds(duration));
-		
+
 		ImageView toIcon = initPiece(p, color, to);
 		if(color)
 			whiteIcons.put(p, toIcon);
@@ -590,21 +608,21 @@ public class App extends Application {
 		layout.getChildren().add(toIcon);
 		resize();
 		toIcon.setVisible(true);
-		
+
 		FadeTransition fadeIn = new FadeTransition();
 		fadeIn.setNode(toIcon);
 		fadeIn.setFromValue(0);
 		fadeIn.setToValue(1);
 		fadeIn.setDuration(Duration.seconds(duration));
-		
-//		SequentialTransition switchPiece = new SequentialTransition(fadeOut, fadeIn);
+
+		//		SequentialTransition switchPiece = new SequentialTransition(fadeOut, fadeIn);
 		ParallelTransition switchPiece = new ParallelTransition(fadeOut, fadeIn);
-		
+
 		animations.add(switchPiece);
 		switchPiece.setOnFinished(e -> animations.remove(switchPiece));
 		return switchPiece;
 	}
-	
+
 	/**
 	 * Gets the coordinate relative to the middle of the layout: (0,0) = Middle of window
 	 * @param p
@@ -683,6 +701,7 @@ public class App extends Application {
 					else							//Knight
 						m.changedTo = new Knight(m.me, m.to);
 				}
+				
 				move(m);
 				deSelect();
 			}
@@ -694,73 +713,76 @@ public class App extends Application {
 	}
 
 	private void move(Move m){
-		if(!allowance.get())
-			return;
 		if(playerHasPiece(m.from, !board.turn)){
 			messages.notYourTurn();
 			return;
 		}
 		else{
 			Piece f = board.getPiece(m.from);
-			if(f == null)
-				System.err.printf("No Piece At %s\n", m.from);
-			else{
-				boolean printScoreLater = board.rules.mode == GameMode.pvc && board.getIsAIPlayer();
-				
-				ArrayList<Move> moves = f.getMoves(board, m.from);
-				int i = moves.indexOf(m);
-				if(i >= 0 && !moves.get(i).putsPlayerInCheck(m.me)){
-					m = moves.get(i);
-					if(m.putsPlayerInCheck(!m.me)){
-						messages.message("Check", Duration.seconds(3));
-					}
-					if(board.move(m)){	//Moves returns if capture piece
-						if (m.me){
-							animateCapture(m.to, Animation_Duration, false).play();
-						}
-						else
-							animateCapture(m.to, Animation_Duration, true).play();
-					}
-					Transition move = animateMove(m.from, m.to, Animation_Duration);
-					if(m.changedTo != null){	//Queen me
-						move.setOnFinished(e -> {
-							animations.remove(move);
-							respondToFinishSwitchMove();
-						});
-						
+			ArrayList<Move> moves = f.getMoves(board, m.from);
+			board.addCastleMoves(moves, m.me);
+			board.removeCastleOutOfCheck(moves, m.me);
+			int i = moves.indexOf(m);
+			if(i >= 0 && !moves.get(i).putsPlayerInCheck(m.me)){
+				m = moves.get(i);
+				if(m.putsPlayerInCheck(!m.me)){
+					messages.message("Check", Duration.seconds(3));
+				}
+				if(board.move(m)){	//Moves returns if capture piece
+					if (m.me){
+						animateCapture(m.to, Animation_Duration, false).play();
 					}
 					else
-						setOnAIMoveOnFinish(move);
-					move.play();
+						animateCapture(m.to, Animation_Duration, true).play();
+				}
+				Transition move = animateMove(m.from, m.to, Animation_Duration);
+				if(m.changedTo != null){	//Queen me
+					move.setOnFinished(e -> {
+						animations.remove(move);
+						respondToFinishSwitchMove();
+					});
 
-					if(board.history.size() == stop)
-						AIStatus = Status.PAUSED;
-//					else if(board.history.size() == stop+5)
-//						AIStatus = Status.RUNNING;
-					
-					
-					if(m.castlingMove){
-						boolean left = m.to.x < 3;
-						int y = m.me == board.rules.topPlayer ? 0 : 7;
-						if(left){
-							animateMove(new Point(0, y), new Point(2, y), Animation_Duration).play();
-						}
-						else{
-							animateMove(new Point(7, y), new Point(4, y), Animation_Duration).play();
-						}
+				}
+				else
+					setOnAIMoveOnFinish(move);
+				move.play();
+
+				if(board.history.size() == stop)
+					AIStatus = Status.PAUSED;
+				//					else if(board.history.size() == stop+5)
+				//						AIStatus = Status.RUNNING;
+
+
+				if(m.castlingMove){
+					boolean left = m.to.x < 3;
+					int y = m.me == board.rules.topPlayer ? 0 : 7;
+					if(left){
+						animateMove(new Point(0, y), new Point(2, y), Animation_Duration).play();
 					}
-					initiateBoard();
-					if(board.gameState != Board.State.INPROGRESS){
-						messages.gameState = board.gameState;
-						messages.gameOver();
+					else{
+						animateMove(new Point(7, y), new Point(4, y), Animation_Duration).play();
 					}
-					if(printScoreLater)
-						messages.message(String.format("Score is %.2f", (board.turn ? board.black : board.white).confidence), Duration.seconds(2));
-					board.updateIcon();
+				}
+				initiateBoard();
+				if(board.gameState != Board.State.INPROGRESS){
+					messages.gameState = board.gameState;
+					messages.gameOver();
+				}
+				board.updateIcon();
+				int temp = board.hashCode(board.white.keys);
+				int index = histHash.indexOf(temp);
+				if(index >= 0){
+					messages.message(String.format("Board State: %s found on lines %d and %d\n",temp, index+1, histHash.size()+1),Duration.seconds(2));
+				}
+				histHash.add(temp);
+				if(!isAllWell()){
+					System.out.println("Icons Disagree");
+					AIStatus = Status.PAUSED;
 				}
 			}
 		}
 	}
+
 	private void setOnAIMoveOnFinish(Transition t){
 		t.setOnFinished(e -> {
 			if(board.getIsAIPlayer() && board.gameState == Board.State.INPROGRESS && allowance.get() && (AIStatus == Status.RUNNING || board.rules.mode == GameMode.pvc))
@@ -801,9 +823,10 @@ public class App extends Application {
 	 * Resets the board
 	 */
 	private void reset(){
+		histHash.clear();
 		board.avCount = 0;
 		board.avTotal = 0;
-//		allowance.set(false);
+		//		allowance.set(false);
 		messages.clear();
 		deSelect();
 		board.setUpBoard();
@@ -815,13 +838,14 @@ public class App extends Application {
 		allowance.set(true);
 		setupAnimation(Animation_Duration,0);
 	}
-	
+
 	private void startAllAnimations(){
 		for(Transition trans: animations)
 			if(!trans.getStatus().equals(Status.RUNNING))
 				trans.play();
 	}
-	private void undo(){
+	private void undo(double d){
+		histHash.remove(histHash.size()-1);
 		if(board.history.isEmpty())
 			System.out.println("Cant Undo");
 		else{
@@ -829,7 +853,7 @@ public class App extends Application {
 			Move m = board.history.peek();
 			board.undo();
 			if(m.changedTo != null){
-				Transition t = animateSwitch(m.to, board.getPiece(m.from), Animation_Duration, m.me);
+				Transition t = animateSwitch(m.to, board.getPiece(m.from), d, m.me);
 				t.setOnFinished(e -> {
 					System.out.println("Finished Fade");
 					animations.remove(t);
@@ -837,7 +861,7 @@ public class App extends Application {
 				});
 				t.play();
 			}
-			animateMove(m.to, m.from, Animation_Duration);
+			animateMove(m.to, m.from, d);
 			if(m.getCapture() != null){
 				Piece piece = m.getCapture();
 				ImageView icon = initPiece(m.to, piece.isWhite(), piece);
@@ -848,15 +872,15 @@ public class App extends Application {
 				else
 					blackIcons.put(m.to, icon);
 				icon.setFitWidth(step);
-				unCapture(icon, Animation_Duration, m.to);
+				unCapture(icon, d, m.to);
 			}
 			if(m.castlingMove){
 				boolean left = m.to.x < 4;
 				int y = m.me == board.rules.topPlayer ? 0 : 7;
 				if(left)
-					animateMove(new Point(2, y), new Point(0, y), Animation_Duration);
+					animateMove(new Point(2, y), new Point(0, y), d);
 				else
-					animateMove(new Point(4, y), new Point(7, y), Animation_Duration);
+					animateMove(new Point(4, y), new Point(7, y), d);
 			}
 			if(m.changedTo == null)
 				startAllAnimations();
@@ -878,9 +902,9 @@ public class App extends Application {
 		}
 		return board.blackPieces.containsKey(p);
 	}
-	
-	
-	
+
+
+
 	@Override
 	public String toString() {
 		return board.toString();
@@ -902,6 +926,23 @@ public class App extends Application {
 		VBox.setMargin(layout.getChildren().get(layout.getChildren().size()-1), new Insets(0,0,10,0));
 
 	}
+	public boolean isAllWell(){
+		Stack<Piece> pieces = new Stack<>();
+		pieces.addAll(board.whitePieces.values());
+		pieces.addAll(board.blackPieces.values());
+		while(!pieces.isEmpty()){
+			Piece p = pieces.pop();
+			if(p.isWhite()){
+				if(!whiteIcons.containsKey(p.position))
+					return false;
+			}
+			else{
+				if(!blackIcons.containsKey(p.position))
+					return false;
+			}
+		}
+		return true;
+	}
 
 	class AIMove extends Thread{
 		AI ai;
@@ -915,32 +956,31 @@ public class App extends Application {
 		}
 		@Override
 		public void run() {
+			allowance.set(true);
 			AI ai = board.getAI();
 			Move move = null;
-			long start = System.nanoTime();
-			try{
+//			long start = System.nanoTime();
+//			try{
 				move = ai.getBestMove();
-			}catch (Exception e) {
-				if(!allowance.get()){
-					System.out.println("Calculation Interrupted By User");
-					return;
-				}
-				System.out.println("Calculation Failed");
-				return;
-			}
-			System.out.printf("Move %d took %.2e nanoUnits\n", board.history.size()+1, (double)(System.nanoTime()-start));
+//			}catch (Exception e) {
+//				System.err.println(e);
+//				System.err.println(e.getStackTrace());
+//				if(!allowance.get()){
+//					System.out.println("Calculation Interrupted By User");
+//					return;
+//				}
+//				System.out.println("Calculation Failed");
+//				throw e;
+//			}
+			progress.set(0.0);
+//			System.out.printf("Move %d took %.2e nanoUnits\n", board.history.size()+1, (double)(System.nanoTime()-start));
 
-			if(allowance.get() && move != null){
+			if(move != null){
 				aisMove = move;
 				Timeline tl = new Timeline(new KeyFrame(Duration.millis(1),evt -> {
 					move(aisMove);
 				}));
 				tl.play();
-				allowance.addListener(e -> {
-					if(!allowance.get()){
-						tl.stop();						
-					}
-				});
 			}
 
 		}

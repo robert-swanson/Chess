@@ -42,9 +42,6 @@ public abstract class Piece
 		//Type
 		if(data[0].matches("\\d")){
 			switch(Integer.parseInt(data[0])){
-			case 0:
-				me = new King(color, pos);
-				break;
 			case 1:
 				me = new Pawn(color, pos);
 				break;
@@ -64,6 +61,7 @@ public abstract class Piece
 				me = new Queen(color, pos);
 				break;
 			default:
+				System.out.println("Unkown Piece ID");
 				return null;
 			}
 		}
@@ -90,6 +88,12 @@ public abstract class Piece
 	public double getValue(int dist)
 	{
 		double rv = value;
+		if(this instanceof Rook){
+			return moves > 0 ? 4.9 : 5;
+		}
+		if(this instanceof King){
+			return moves > 0 ? 99.9 : 100;
+		}
 		if(this instanceof Pawn){
 			switch(dist){
 			case 5:
@@ -149,6 +153,16 @@ public abstract class Piece
 	}
 	public abstract ArrayList<Move> getMoves(Board board, Point pos);
 	
+	public int getPieceHash(){
+		if(this instanceof Pawn && moves == 0)
+			return (color ? 14 : 15);
+		if(this instanceof Rook && moves == 0)
+			return (color ? 12 : 13);
+		int rv = getPieceID()-1;
+		if(!color)
+			rv += 6;
+		return rv;
+	}
 	public int getPieceID(){
 		if(this instanceof Pawn)
 			return 1;
