@@ -48,6 +48,7 @@ public class Move implements Comparable<Move>
 		this.to = to;
 		this.board = board;
 		this.piece = board.getPiece(from);
+		this.score = -9999;
 		if(this == null || piece == null){
 			System.out.println("HERE");
 		}
@@ -102,15 +103,15 @@ public class Move implements Comparable<Move>
 			int y = me == board.rules.topPlayer ? 0 : 7;
 			if(left){
 				Rook rook = (Rook)board.removePiece(new Point(0, y), me);
-				board.putPiece(rook, new Point(2, y));
+				board.putPiece(rook, new Point(3, y));
 				rook.moves++;
-				rook.position = new Point(2, y);
+				rook.position = new Point(3, y);
 			}
 			else{
 				Rook rook = (Rook)board.removePiece(new Point(7, y), me);
-				board.putPiece(rook, new Point(4, y));
+				board.putPiece(rook, new Point(5, y));
 				rook.moves++;
-				rook.position = new Point(4, y);
+				rook.position = new Point(5, y);
 			}
 		}
 		else if(changedTo != null)
@@ -145,14 +146,14 @@ public class Move implements Comparable<Move>
 			boolean left = to.x < 4;
 			int y = me == board.rules.topPlayer ? 0 : 7;
 			if(left){
-				Rook rook = (Rook)board.removePiece(new Point(2, y), me);
+				Rook rook = (Rook)board.removePiece(new Point(3, y), me);
 				rook.position = new Point(0, y);
 				rook.moves--;
 				board.putPiece(rook, new Point(0, y));
 			}
 				
 			else{
-				Rook rook = (Rook)board.removePiece(new Point(4, y), me);
+				Rook rook = (Rook)board.removePiece(new Point(5, y), me);
 				rook.position = new Point(7, y);
 				rook.moves--;
 				board.putPiece(rook, new Point(7, y));

@@ -1,6 +1,7 @@
 package chess;
 
 import chess.AI.Stratagy;
+import chess.Board.RuleSet.GameMode;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Orientation;
@@ -58,7 +59,8 @@ public class SettingsView{
 		window.setTitle("Settings");
 		window.setMinWidth(300);
 		window.setMinHeight(80+layout.getChildren().size()*40);
-		
+		window.setHeight(rules.mode == GameMode.pvp ? 320 : 645);
+		window.setResizable(false);
 		
 
 		//OK Button
@@ -80,19 +82,39 @@ public class SettingsView{
 		gameMode.valueProperty().addListener(e -> {
 			System.out.println("Changed Gamemode to:" + gameMode.getValue());
 			String m = gameMode.getValue();
-			if(m.equals("Player vs Player"))
+			if(m.equals("Player vs Player")){
 				rules.mode = Board.RuleSet.GameMode.pvp;
-			else if(m.equals("Player vs Computer"))
+				window.setHeight(320);
+			}
+			else if(m.equals("Player vs Computer")){
 				rules.mode = Board.RuleSet.GameMode.pvc;
-			else
+				window.setHeight(645);
+
+			}
+			else{
 				rules.mode = Board.RuleSet.GameMode.cvc;
+				window.setHeight(645);
+			}
 			layout.getChildren().remove(stratagy);
 			initStratagyView(rules.mode);
 			layout.getChildren().add(layout.getChildren().size()-1, stratagy);
 		});
 		initStratagyView(rules.mode);
 		//Rules
-
+		//Debug
+		CheckBox debug = new CheckBox("Debug Mode");
+		debug.setSelected(rules.debug);
+		debug.selectedProperty().addListener(e -> {
+			rules.debug = debug.isSelected();
+		});
+		//Undo
+		CheckBox undo = new CheckBox("Allow Undo");
+		undo.setSelected(rules.undo);
+		undo.selectedProperty().addListener(e -> {
+			rules.undo = undo.isSelected();
+			mustRestartOnClose = true;
+		});
+		
 		//CastleTCheck
 		CheckBox throughCheck = new CheckBox("Can't Castle Through Check");
 		throughCheck.setSelected(rules.cantCastleThroughCheck);
@@ -189,7 +211,7 @@ public class SettingsView{
 		
 		timeLimit.getChildren().addAll(tl1,tl, tlM, tl2, tlS, tl3);
 
-		layout.getChildren().addAll(throughCheck, afterCheck, topPlayer, timeLimit, sep, gameMode, stratagy, ok);
+		layout.getChildren().addAll(debug, undo, throughCheck, afterCheck, topPlayer, timeLimit, sep, gameMode, stratagy, ok);
 		App.SetMargins(layout);
 
 		Scene s = new Scene(layout);
@@ -252,11 +274,27 @@ public class SettingsView{
 				//Random Element
 				CheckBox random = new CheckBox("Add Random Element");
 				random.setSelected(getStrat(cPlayer.getValue()).addRand);
+				
+				//Nodes
+				CheckBox nodes = new CheckBox("Nodes");
+				nodes.setSelected(getStrat(cPlayer.getValue()).nodes);
+				
+				//Prevent Cycles
+				CheckBox cycles = new CheckBox("Prevent Cycles");
+				cycles.setSelected(getStrat(cPlayer.getValue()).preventCycles);
 
 				//Transposition Table
-				CheckBox transpositionTable = new CheckBox("Transposition Table");
-				transpositionTable.setSelected(getStrat(cPlayer.getValue()).transpositionTable);
-
+				HBox ttt = new HBox();
+				CheckBox tt = new CheckBox("Transposition Table");
+				TextField ttd = new TextField();
+				ttd.disableProperty().bind(tt.selectedProperty().not());
+				ttd.setPromptText("Depth");
+				ttt.getChildren().addAll(tt,ttd);
+				tt.setSelected(getStrat(cPlayer.getValue()).transpositionTable);
+				ttd.setText(getStrat(cPlayer.getValue()).transpositionTableDepth+"");
+				App.SetUpHBox(ttt);
+				App.SetUpTextField(ttd);
+				
 
 				//Killer Heuristic
 				HBox kH = new HBox();
@@ -283,11 +321,11 @@ public class SettingsView{
 				App.SetUpTextField(iDDepth);
 				
 				cPlayer.valueProperty().addListener(e -> {
-					editListeners(getStrat(cPlayer.getValue()), d, cd, alphaBeta, random, transpositionTable, killerHeuristic, kHDepth, iterativeDeepening, iDDepth);
+					editListeners(getStrat(cPlayer.getValue()), d, cd, alphaBeta, random, nodes, cycles, tt, ttd, killerHeuristic, kHDepth, iterativeDeepening, iDDepth);
 				});
-				editListeners(getStrat(cPlayer.getValue()), d, cd, alphaBeta, random, transpositionTable, killerHeuristic, kHDepth, iterativeDeepening, iDDepth);
+				editListeners(getStrat(cPlayer.getValue()), d, cd, alphaBeta, random, nodes, cycles, tt, ttd, killerHeuristic, kHDepth, iterativeDeepening, iDDepth);
 
-				stratagy.getChildren().addAll(depth, cDepth, alphaBeta, random, transpositionTable, kH, iD);
+				stratagy.getChildren().addAll(depth, cDepth, alphaBeta, random, nodes, cycles, ttt, kH, iD);
 	}
 
 	
@@ -296,7 +334,10 @@ public class SettingsView{
 			TextField cDepth, 
 			CheckBox alphaBeta, 
 			CheckBox rand,
-			CheckBox transpositionTable, 
+			CheckBox nodes,
+			CheckBox cycles,
+			CheckBox transpositionTable,
+			TextField ttd,
 			CheckBox killerHeuristic, 
 			TextField kHDepth, 
 			CheckBox IterativeDeepening, 
@@ -327,9 +368,25 @@ public class SettingsView{
 		rand.selectedProperty().addListener(e -> {
 			strat.addRand = rand.isSelected();
 		});
+		
+		nodes.selectedProperty().addListener(e -> {
+			strat.nodes = nodes.isSelected();
+		});
+		
+		cycles.selectedProperty().addListener(e -> {
+			strat.preventCycles = cycles.isSelected();
+		});
 
 		transpositionTable.selectedProperty().addListener(e -> {
 			strat.transpositionTable = transpositionTable.isSelected();
+		});
+		
+		ttd.textProperty().addListener(e -> {
+			if(ttd.getText().matches("\\d+")){
+				strat.transpositionTableDepth = Integer.parseInt(ttd.getText());
+			}
+			else if(ttd.getText().length() > 0)
+				ttd.setText(""+strat.transpositionTableDepth);
 		});
 
 		killerHeuristic.selectedProperty().addListener(e -> {

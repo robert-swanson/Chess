@@ -5,11 +5,10 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Observable;
 import java.util.Stack;
 
 import javax.swing.ImageIcon;
-
-import com.sun.org.glassfish.gmbal.AMXMetadata;
 
 import chess.Board.RuleSet.GameMode;
 import chess.pieces.Knight;
@@ -28,15 +27,19 @@ import javafx.animation.Transition;
 import javafx.application.Application;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.Clipboard;
@@ -145,17 +148,28 @@ public class App extends Application {
 
 	ArrayList<Integer> histHash = new ArrayList<>();
 
+	Tester tester;
+
+	HBox buttons;
+
 
 	public static void main(String[] args){
 		launch(args);
 	}
+	@Override
+	public void stop() throws Exception {
+		allowance.set(false);
+		System.out.println("Terminating Program");
+		super.stop();
+	}
 
 	@Override
 	public void start(Stage primaryStage) throws Exception {
+		allowance = new SimpleBooleanProperty(true);
 		progress = new SimpleDoubleProperty(0.0);
+		tester = new Tester(progress,allowance);
 		AIStatus = Status.PAUSED;
 		animations = new ArrayList<>();
-		allowance = new SimpleBooleanProperty(true);
 		board = new Board(allowance, progress);
 		board = new Board(allowance, progress);
 		whiteIcons = new HashMap<>();
@@ -206,130 +220,7 @@ public class App extends Application {
 
 		//Initialize
 
-
-		//Progress Bar
-
-		//Buttons
-		HBox buttons = new HBox(10);
-		buttons.setAlignment(Pos.CENTER);
-		buttons.setPadding(new Insets(10,0,10,0));
-
-		Button tree = new Button("Tree");
-		tree.setOnAction(e -> {
-			if(board.turn)
-				board.black.parent.print();
-			else
-				board.white.parent.print();
-			try {
-				Desktop.getDesktop().open(new File("ChessTree.txt"));
-			} catch (IOException e1) {
-				System.err.println("No File Named ChessTree.txt");
-				e1.printStackTrace();
-			}
-		});
-
-		Button reanimate = new Button("Show Last");
-		reanimate.setOnAction(e -> {
-			Move last = board.history.peek();
-			undo(.001);
-			move(last);
-		});
-		
-		Button reset = new Button("Restart");
-		reset.setOnAction(e -> reset());
-
-		Button sync = new Button("Sync");
-		sync.setOnAction(e -> {
-			initiatePieces();
-			resize();
-			setupAnimation(.0001, 0);
-		});
-
-		Button print = new Button("Print");
-		print.setOnAction(e -> {
-			board.print();
-		});
-		
-
-		Button undo = new Button("Undo");
-		undo.setOnAction(e -> {
-			switch(board.rules.mode){
-			case cvc:
-				if(AIStatus == Status.PAUSED)
-					undo(Animation_Duration);
-				break;
-			case pvc:
-				undo(Animation_Duration);
-				undo(Animation_Duration);
-				break;
-			case pvp:
-				undo(Animation_Duration);
-				break;
-			default:
-				break;
-			}
-			initiateBoard();
-		});
-
-		Button sButton = new Button("Settings");
-		sButton.setOnAction(e -> {
-			SettingsView s = new SettingsView(board);
-			if(s.display())
-				reset();
-			System.out.println(board.rules);
-			System.out.println(board.white.stratagy);
-			System.out.println(board.black.stratagy);
-		});
-
-		Button stepT = new Button("Step");
-		stepT.setOnAction(e -> {
-			if(board.getIsAIPlayer())
-				new AIMove(board).start();
-		});
-
-		Button pausePlay = new Button(AIStatus == Status.PAUSED ? "Play" : "Pause");
-		pausePlay.setOnAction(e -> {
-			if(board.rules.mode == GameMode.cvc){
-				if(AIStatus == Status.PAUSED){
-					pausePlay.setText("Pause");
-					AIStatus = Status.RUNNING;
-					new AIMove(board).start();
-				}
-				else{
-					pausePlay.setText("Play");
-					AIStatus = Status.PAUSED;
-					allowance.set(false);
-				}
-			}
-		});
-
-		Button copy = new Button("Copy");
-		copy.setOnAction(e -> {
-			ClipboardContent content = new ClipboardContent();
-			content.putString(board.exportToString());
-			Clipboard.getSystemClipboard().setContent(content);
-			messages.message("Copied", Duration.seconds(1));
-		});
-		Button hist = new Button("History");
-		hist.setOnAction(e -> {
-			ClipboardContent content = new ClipboardContent();
-			content.putString(board.history.toString());
-			Clipboard.getSystemClipboard().setContent(content);
-			messages.message(String.format("Copied History to Clipboard, Size: %d",board.history.size()), Duration.seconds(1));
-		});
-
-		Button load = new Button("Load");
-		load.setOnAction(e -> {
-			String content = Clipboard.getSystemClipboard().getString();
-			board = new Board(allowance, content, progress);
-			initiatePieces();
-			resize();
-			setupAnimation(.0001, 0);
-		});
-
-
-		buttons.getChildren().addAll(reset, undo, reanimate, sButton, print, hist, tree, pausePlay, stepT, sync);
-
+		initButtonBar();
 
 		//Stack Pane
 		layout = new StackPane();
@@ -376,7 +267,7 @@ public class App extends Application {
 		GraphicsContext gc = canvas.getGraphicsContext2D();
 		gc.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
 
-		boolean startBlack = true;
+		boolean startBlack = false;
 		for(int y = 0; y < 8; y++){
 			boolean black = startBlack;
 			for(int x = 0; x < 8; x++){
@@ -438,6 +329,175 @@ public class App extends Application {
 			whiteIcons.put(point, icon);
 			layout.getChildren().add(icon);
 		}		
+	}
+
+	private HBox initButtonBar(){
+		//Buttons
+		HBox buttons = new HBox(10);
+		buttons.setAlignment(Pos.CENTER);
+		buttons.setPadding(new Insets(10,0,10,0));
+
+		Button tree = new Button("Tree");
+		tree.setOnAction(e -> {
+			if(board.turn)
+				board.black.parent.print();
+			else
+				board.white.parent.print();
+			try {
+				Desktop.getDesktop().open(new File("ChessTree.txt"));
+			} catch (IOException e1) {
+				System.err.println("No File Named ChessTree.txt");
+				e1.printStackTrace();
+			}
+		});
+
+		Button reanimate = new Button("Show Last");
+		reanimate.setOnAction(e -> {
+			Move last = board.history.peek();
+			undo(.001);
+			move(last);
+		});
+
+		Button reset = new Button("Restart");
+		reset.setOnAction(e -> reset());
+
+		Button sync = new Button("Sync");
+		sync.setOnAction(e -> {
+			initiatePieces();
+			resize();
+			setupAnimation(.0001, 0);
+		});
+
+		Button print = new Button("Print");
+		print.setOnAction(e -> {
+			board.print();
+		});
+
+
+		Button undo = new Button("Undo");
+		undo.setOnAction(e -> {
+			switch(board.rules.mode){
+			case cvc:
+				if(AIStatus == Status.PAUSED)
+					undo(Animation_Duration);
+				break;
+			case pvc:
+				undo(Animation_Duration);
+				undo(Animation_Duration);
+				break;
+			case pvp:
+				undo(Animation_Duration);
+				break;
+			default:
+				break;
+			}
+			initiateBoard();
+		});
+
+		ImageView sButton = new ImageView(getClass().getResource("settings.png").toString());
+		sButton.setPreserveRatio(true);
+		sButton.setVisible(true);
+		sButton.setOnMouseClicked(e-> {
+			SettingsView s = new SettingsView(board);
+			if(s.display())
+				reset();
+			initButtonBar();
+			if(board.getIsAIPlayer())
+				new AIMove(board).start();
+		});
+
+
+		Button stepT = new Button("Step");
+		stepT.setOnAction(e -> {
+			if(board.getIsAIPlayer())
+				new AIMove(board).start();
+		});
+
+		Button pausePlay = new Button(AIStatus == Status.PAUSED ? "Play" : "Pause");
+		pausePlay.setOnAction(e -> {
+			if(board.rules.mode == GameMode.cvc){
+				if(AIStatus == Status.PAUSED){
+					pausePlay.setText("Pause");
+					AIStatus = Status.RUNNING;
+					new AIMove(board).start();
+				}
+				else{
+					pausePlay.setText("Play");
+					AIStatus = Status.PAUSED;
+					allowance.set(false);
+				}
+			}
+		});
+
+		//		Button copy = new Button("Copy");
+		//		copy.setOnAction(e -> {
+		//			ClipboardContent content = new ClipboardContent();
+		//			content.putString(board.exportToString());
+		//			Clipboard.getSystemClipboard().setContent(content);
+		//			messages.message("Copied", Duration.seconds(1));
+		//		});
+		Button hist = new Button("History");
+		hist.setOnAction(e -> {
+			ClipboardContent content = new ClipboardContent();
+			content.putString(board.history.toString());
+			Clipboard.getSystemClipboard().setContent(content);
+			messages.message(String.format("Copied History to Clipboard, Size: %d",board.history.size()), Duration.seconds(1));
+		});
+
+		Button load = new Button("Load");
+		load.setOnAction(e -> {
+			String content = Clipboard.getSystemClipboard().getString();
+			board = new Board(allowance, content, progress);
+			initiatePieces();
+			resize();
+			setupAnimation(.0001, 0);
+		});
+
+
+		Button test = new Button("Test");
+		test.setOnAction(e -> {
+			if(test.getText().equals("Test")){
+				test.setText("Stop");
+				tester.start();
+				try {
+					Desktop.getDesktop().open(new File("Learner.txt"));
+				} catch (IOException e1) {
+					System.err.println("No File Named ChessTree.txt");
+					e1.printStackTrace();
+				}
+			}
+			else{
+				allowance.set(false);
+				test.setText("Test");
+			}
+
+		});
+		sButton.fitHeightProperty().set(20);;
+
+
+		buttons.getChildren().addAll(sButton, reset, hist);
+		if(board.rules.undo)
+			buttons.getChildren().addAll(undo);
+		if(board.rules.mode != GameMode.cvc)
+			buttons.getChildren().addAll(reanimate);
+		else
+			buttons.getChildren().addAll(pausePlay, stepT);
+		if(board.rules.debug){
+			Separator sep = new Separator(Orientation.VERTICAL);
+			buttons.getChildren().addAll(sep, print, tree, sync, test);
+		}
+		//		this.buttons.getChildren().clear();
+		//		this.buttons.getChildren().addAll(buttons.getChildren());
+
+		if(this.buttons == null){
+			this.buttons = buttons;
+		}
+		else{
+			ObservableList<Node> nodes = this.buttons.getChildren();
+			nodes.clear();
+			nodes.addAll(buttons.getChildren());
+		}
+		return buttons;
 	}
 
 	private ImageView initPiece(Point p, boolean player, Piece piece){
@@ -701,7 +761,7 @@ public class App extends Application {
 					else							//Knight
 						m.changedTo = new Knight(m.me, m.to);
 				}
-				
+
 				move(m);
 				deSelect();
 			}
@@ -757,10 +817,10 @@ public class App extends Application {
 					boolean left = m.to.x < 3;
 					int y = m.me == board.rules.topPlayer ? 0 : 7;
 					if(left){
-						animateMove(new Point(0, y), new Point(2, y), Animation_Duration).play();
+						animateMove(new Point(0, y), new Point(3, y), Animation_Duration).play();
 					}
 					else{
-						animateMove(new Point(7, y), new Point(4, y), Animation_Duration).play();
+						animateMove(new Point(7, y), new Point(5, y), Animation_Duration).play();
 					}
 				}
 				initiateBoard();
@@ -878,9 +938,9 @@ public class App extends Application {
 				boolean left = m.to.x < 4;
 				int y = m.me == board.rules.topPlayer ? 0 : 7;
 				if(left)
-					animateMove(new Point(2, y), new Point(0, y), d);
+					animateMove(new Point(3, y), new Point(0, y), d);
 				else
-					animateMove(new Point(4, y), new Point(7, y), d);
+					animateMove(new Point(5, y), new Point(7, y), d);
 			}
 			if(m.changedTo == null)
 				startAllAnimations();
@@ -959,22 +1019,19 @@ public class App extends Application {
 			allowance.set(true);
 			AI ai = board.getAI();
 			Move move = null;
-//			long start = System.nanoTime();
-//			try{
+			try{
 				move = ai.getBestMove();
-//			}catch (Exception e) {
-//				System.err.println(e);
-//				System.err.println(e.getStackTrace());
-//				if(!allowance.get()){
-//					System.out.println("Calculation Interrupted By User");
-//					return;
-//				}
-//				System.out.println("Calculation Failed");
-//				throw e;
-//			}
+			}catch (Exception e) {
+				System.err.println(e);
+				System.err.println(e.getStackTrace());
+				if(!allowance.get()){
+					System.out.println("Calculation Interrupted By User");
+					return;
+				}
+				System.out.println("Calculation Failed");
+				throw e;
+			}
 			progress.set(0.0);
-//			System.out.printf("Move %d took %.2e nanoUnits\n", board.history.size()+1, (double)(System.nanoTime()-start));
-
 			if(move != null){
 				aisMove = move;
 				Timeline tl = new Timeline(new KeyFrame(Duration.millis(1),evt -> {

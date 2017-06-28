@@ -61,6 +61,8 @@ public class Board {
 			}
 		}
 		public GameMode mode;
+		public boolean debug;
+		public boolean undo;
 		public boolean cantCastleThroughCheck;
 		public boolean cantCastleAfterCheck;
 		public boolean topPlayer;
@@ -86,12 +88,14 @@ public class Board {
 			computerPlayer = comp == 1;
 			}
 		public RuleSet() {
-			mode = GameMode.cvc;
+			mode = GameMode.pvc;
 			cantCastleThroughCheck = true;
 			cantCastleAfterCheck = false;
 			topPlayer = false;
 			timeLimit = TimeLimit.off;
 			computerPlayer = false;
+			undo = true;
+			debug = false;
 		}
 		@Override
 		public String toString() {
@@ -193,11 +197,15 @@ public class Board {
 		for(String piece: pieces){
 			Piece n = Piece.importPiece(piece);
 			whitePieces.put(n.position, n);
+			if(n instanceof King)
+				whiteKing = (King)n;
 		}
 		pieces = input[2].split("-");
 		for(String piece: pieces){
 			Piece n = Piece.importPiece(piece);
 			blackPieces.put(n.position, n);
+			if(n instanceof King)
+				blackKing = (King)n;
 		}
 		
 		//Turn
@@ -212,6 +220,8 @@ public class Board {
 	}
 	
 	public void setUpBoard(){
+		white.resetKHTT();
+		black.resetKHTT();
 		boolean topPlayer = rules.topPlayer;
 		gameState = State.INPROGRESS;
 		whitePieces  = new HashMap<>();
@@ -238,7 +248,7 @@ public class Board {
 		whitePieces.put(p, new Knight(true, p));
 		p = new Point(2, whiteY);
 		whitePieces.put(p, new Bishop(true, p));
-		if(topPlayer){
+		if(!topPlayer){
 			p = new Point(3, whiteY);
 			whitePieces.put(p, new Queen(true, p));
 			p = new Point(4, whiteY);
@@ -265,7 +275,7 @@ public class Board {
 		blackPieces.put(p, new Knight(false, p));
 		p = new Point(2, blackY);
 		blackPieces.put(p, new Bishop(false, p));
-		if(topPlayer){
+		if(!topPlayer){
 			p = new Point(3, blackY);
 			blackPieces.put(p, new Queen(false, p));
 			p = new Point(4, blackY);
@@ -417,11 +427,11 @@ public class Board {
 		Piece left = getPiece(new Point(0, y), color);
 		if(left == null || !(left instanceof Rook) || left.moves > 0)
 			validL = false;
-		for(int x = 2; x > 0 && validL; x--){
+		for(int x = 3; x > 0 && validL; x--){
 			if(getWhoOccupiesAt(new Point(x, y)) != null)
 				validL = false;
 			if(validL && rules.cantCastleThroughCheck){
-				Move test = new Move(new Point(3, y), new Point(x, y), this);
+				Move test = new Move(new Point(4, y), new Point(x, y), this);
 				if(test.putsPlayerInCheck(test.me)){
 					validL = false;
 				}
@@ -432,11 +442,11 @@ public class Board {
 		Piece right = getPiece(new Point(7, y), color);
 		if(right == null || !(right instanceof Rook) || right.moves > 0)
 			validR = false;
-		for(int x = 4; x < 7 && validR; x++){
+		for(int x = 5; x < 7 && validR; x++){
 			if(getWhoOccupiesAt(new Point(x, y)) != null)
 				validR = false;
 			if(validR && rules.cantCastleThroughCheck){
-				Move test = new Move(new Point(3, y), new Point(x, y), this);
+				Move test = new Move(new Point(4, y), new Point(x, y), this);
 				if(test.putsPlayerInCheck(test.me)){
 					validR = false;
 				}
@@ -444,12 +454,12 @@ public class Board {
 		}
 		
 		if(validL){
-			Move l = new Move(new Point(3, y), new Point(1, y), this);
+			Move l = new Move(new Point(4, y), new Point(2, y), this);
 			l.castlingMove = true;
 			moves.add(l);
 		}
 		if(validR){
-			Move r = new Move(new Point(3, y), new Point(5, y), this);
+			Move r = new Move(new Point(4, y), new Point(6, y), this);
 			r.castlingMove = true;
 			moves.add(r);
 		}
@@ -490,7 +500,6 @@ public class Board {
 	public void print(){
 		System.out.println(this);
 		System.out.printf("%d moves\n", history.size());
-		printTimer("Average Runtime");
 	}
 	public AI getAI(){
 		if(getIsAIPlayer())
