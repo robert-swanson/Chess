@@ -4,11 +4,13 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
+import chess.pieces.Bishop;
 import chess.pieces.Piece;
+import chess.pieces.Queen;
+import chess.pieces.Rook;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 
@@ -37,12 +39,12 @@ public class AI {
 			alphaBeta = true;
 			transpositionTable = true;
 			transpositionTableDepth = 4;
-			killerHeuristic =  true;
+			killerHeuristic =  false;
 			killerHeuristicDepth = 4;
-			iterativeDeepening = false;
-			iterativedeepeningDepth = 4;
-			addRand = false;
-			checkDepth = 0;
+			iterativeDeepening = true;
+			iterativedeepeningDepth = 2;
+			addRand = true;
+			checkDepth = 1;
 			
 			nodes = true;
 			preventCycles = true;
@@ -84,8 +86,10 @@ public class AI {
 	final int progressDepth = 2;
 	
 	SimpleDoubleProperty progress;
+	Long totalNodes;
 	
 	public double confidence;
+	public boolean thinking = false;
 	public int[][] keys;
 	HashMap<Integer, Double>[] transpositionTable;
 	Move[][] killerH;
@@ -99,7 +103,6 @@ public class AI {
 	boolean idDone;
 
 	
-	@SuppressWarnings("unchecked")
 	public AI(Board board, boolean player, SimpleBooleanProperty a, SimpleDoubleProperty p) {
 		try {
 			logger = new PrintWriter("ChessTree.txt");
@@ -129,7 +132,7 @@ public class AI {
 	public void resetKHTT(){
 		transpositionTable = new HashMap[stratagy.depth+1];
 		killerH = new Move[stratagy.depth+1][2];
-		for(int d = 0; d <= stratagy.transpositionTableDepth; d++){
+		for(int d = 0; d <= stratagy.transpositionTableDepth && d <= stratagy.depth; d++){
 			transpositionTable[d] = new HashMap<>();
 		}
 	}
@@ -152,13 +155,24 @@ public class AI {
 		return moves;
 	}
 	
+	public Move forceMove(){
+		if(board.getIsAIPlayer()){
+			System.out.println("To SLOW MR. AI");
+		}
+		ArrayList<Move> moves = getMoves(player);
+		board.removeCastleOutOfCheck(moves, player);
+		board.removeCheckMoves(moves);
+		return moves.get((int)(Math.random()*moves.size())*0);
+	}
+	
 	/**
 	 * Determines the best move to make
 	 * @return
 	 * The best move
 	 */
-	@SuppressWarnings("unchecked")
 	public Move getBestMove(){
+		thinking = true;
+		progress.set(0.0);						//PROGRESS
 		board.startTimer();
 
 		boolean ab = stratagy.alphaBeta;
@@ -166,17 +180,10 @@ public class AI {
 		boolean kh = tt && stratagy.killerHeuristic && stratagy.killerHeuristicDepth >= 0;
 		boolean id = tt && stratagy.iterativeDeepening && stratagy.iterativedeepeningDepth < stratagy.depth;
 		
-		if(id){
-			killerH = new Move[stratagy.depth+1][2];
-			transpositionTable = new HashMap[stratagy.depth+1];	
-			for(int d = 0; d <= stratagy.transpositionTableDepth; d++){
-				transpositionTable[d] = new HashMap<>();
-			}
-		}
+		resetKHTT();
 		if(id)
 			iterativeGetBestMove();
 		
-		progress.set(0.0);						//PROGRESS
 		parent = new Node(true);
 		boolean me = board.turn;
 		
@@ -199,11 +206,14 @@ public class AI {
 				}
 		}
 		
-		if(moves.size() == 0)
-			return null;
+		if(moves.size() == 0){
+			thinking = false;
+			return null;	
+		}
 		
 		if(stratagy.depth == 0){				//Random Moves
 			randomize(moves);
+			thinking = false;
 			return moves.get(0);
 		}
 		
@@ -244,6 +254,7 @@ public class AI {
 					alpha = m.score;
 				if(alpha > beta){
 					progress.set(progress.get() + (moves.size()-index) * step); //PROGRESS
+					thinking = false;
 					return best;
 				}
 			}
@@ -252,6 +263,7 @@ public class AI {
 		progress.set(0.0);
 		board.endTimer();
 		board.printTimer("Move " + board.history.size());
+		thinking = false;
 		return best;
 	}
 	
@@ -268,7 +280,7 @@ public class AI {
 		boolean maximizer = me == board.turn;
 		boolean aB = stratagy.alphaBeta;
 		boolean tT = stratagy.transpositionTable && depth <= stratagy.transpositionTableDepth;
-		boolean iD = tT && stratagy.iterativeDeepening && depth <= stratagy.iterativedeepeningDepth;
+		boolean iD = tT && stratagy.iterativeDeepening;
 		boolean kH = tT && stratagy.killerHeuristic && depth <= stratagy.killerHeuristicDepth;
 		ArrayList<Move> moves = getMoves(board.turn);
 		
@@ -277,6 +289,8 @@ public class AI {
 			board.removeCheckMoves(moves);
 			
 		double step = whole/moves.size();			//PROGRESS
+//		if(iD)
+//			step = Math.pow(32, depth)/totalNodes;
 		if(depth == maxDepth || moves.isEmpty()){	//Depth
 			double score = score(me, null, moves);
 			return score;
@@ -289,8 +303,8 @@ public class AI {
 		Move best = moves.get(0);
 		int index = 0;
 		for(Move m: moves){
-			if(!allowance.get() && best != null)
-				return best.score;
+			if(!allowance.get())
+				return  best.score;
 			Node child = new Node(!maximizer, m);						//NODE
 			m.doMove();
 			int hash = board.hashCode(keys);
@@ -339,16 +353,21 @@ public class AI {
 	}
 	@SuppressWarnings("unchecked")
 	private void iterativeGetBestMove(){
+		totalNodes = (long) 0;
+		for(int d = stratagy.iterativedeepeningDepth; d <= stratagy.depth; d++)
+			totalNodes += (int)Math.pow(32, d);
 		transpositionTable = new HashMap[stratagy.depth];
 		for(int i = 0; i < transpositionTable.length; i++)
 			transpositionTable[i] = new HashMap<>();
 		best = null;
 		Node parent = new Node(true);
 		for(int d = stratagy.iterativedeepeningDepth; d < stratagy.depth; d++){
-			minimax(-1000, 1000, board.turn, 0, d, parent, 1.0);
+			double step = Math.pow(32, d)/totalNodes;
+			minimax(-1000, 1000, board.turn, 0, d, parent, step);
 		}
 	}
 	private void sortMoves(ArrayList<Move> moves, int depth){
+		boolean maximizer = depth % 2 == 0;
 		for(int i = 0; i < moves.size(); i++){
 			Move m = moves.get(i);
 			m.doMove();
@@ -357,12 +376,19 @@ public class AI {
 			Double score = transpositionTable[depth].get(hash);
 			if(score != null){
 				m.score = score;
+				m.maximizer = maximizer;
 			}
 			else{
 				return;	
 			}
 		}
-		Collections.sort(moves);
+		for(int i = 1; i < moves.size(); i++){
+			int t = i;
+			while(t > 0 && moves.get(t).score < moves.get(t-1).score){
+				moves.add(t-1, moves.remove(t));
+				t--;
+			}
+		}
 	}
 	private Move setBest(Move a, Move b, boolean maximizer, boolean top){
 		if(maximizer){
@@ -378,12 +404,22 @@ public class AI {
 			}
 		}
 		if(top && b.score ==  a.score){
-			if(b.putsPlayerInCheck(!b.me) && !a.putsPlayerInCheck(!a.me)){
+			boolean aCheck = a.putsPlayerInCheck(!a.me);
+			boolean bCheck = b.putsPlayerInCheck(!b.me);
+			if(!aCheck && bCheck){
 				progressScore(b);
 				return b;
 			}
+			else if(aCheck && bCheck){
+				if(scorePieceChecking(b.piece) > scorePieceChecking(a.piece)){
+					progressScore(b);
+					return b;
+				}
+					
+			}
 			progressScore(b);
 			if(a.progressScore < b.progressScore){
+				progressScore(b);
 				return b;
 			}
 			else if(stratagy.addRand && Math.random()>.5){
@@ -585,6 +621,16 @@ public class AI {
 		return moves;
 	}
 	
+	private int scorePieceChecking(Piece p){
+		if(p instanceof Queen)
+			return 3;
+		if(p instanceof Rook)
+			return 2;
+		if(p instanceof Bishop)
+			return 1;
+		return 0;
+	}
+	
 	/**
 	 * Evaluates the current board according to the piece values
 	 * @return
@@ -611,7 +657,7 @@ public class AI {
 		}
 		if(m != null)
 			m.progressScore = score;
-		for(Piece p: board.getPieces(!maximizingPlayer).values()){
+		for(Piece p: board.getPieces(!maximizingPlayer).values().toArray(new Piece[board.getPieces(!maximizingPlayer).size()])){
 			int dist = (p.isWhite() == board.rules.topPlayer) ? p.position.y-1 : 6 - p.position.y;  
 			score =  fixFloatIssues(score - p.getValue(dist));
 		}

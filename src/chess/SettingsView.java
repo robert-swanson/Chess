@@ -6,7 +6,6 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
-import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
@@ -18,7 +17,6 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
-import javafx.stage.Screen;
 import javafx.stage.Stage;
 
 public class SettingsView{
@@ -46,13 +44,13 @@ public class SettingsView{
 		
 		double stageX = 0.0;
 		double stageY = 0.0;
-		for(Screen screen : Screen.getScreens()){
-			Rectangle2D bounds = screen.getBounds();
-			if(bounds.getWidth() == 1280.0 && bounds.getHeight() == 800){
-				stageX = bounds.getMinX()+bounds.getWidth();
-				stageY = bounds.getMinY()+bounds.getHeight();
-				}
-		}
+//		for(Screen screen : Screen.getScreens()){
+//			Rectangle2D bounds = screen.getBounds();
+//			if(bounds.getWidth() == 1280.0 && bounds.getHeight() == 800){
+//				stageX = bounds.getMinX()+bounds.getWidth();
+//				stageY = bounds.getMinY()+bounds.getHeight();
+//				}
+//		}
 		window.setX(stageX);
 		window.setY(stageY);
 		window.initModality(Modality.APPLICATION_MODAL);
@@ -79,6 +77,7 @@ public class SettingsView{
 				"Computer vs Computer");
 		ComboBox<String> gameMode = new ComboBox<>(modes);
 		gameMode.setValue(rules.mode.toString());
+		
 		gameMode.valueProperty().addListener(e -> {
 			System.out.println("Changed Gamemode to:" + gameMode.getValue());
 			String m = gameMode.getValue();
@@ -98,8 +97,7 @@ public class SettingsView{
 			layout.getChildren().remove(stratagy);
 			initStratagyView(rules.mode);
 			layout.getChildren().add(layout.getChildren().size()-1, stratagy);
-		});
-		initStratagyView(rules.mode);
+		});		initStratagyView(rules.mode);
 		//Rules
 		//Debug
 		CheckBox debug = new CheckBox("Debug Mode");
@@ -211,7 +209,7 @@ public class SettingsView{
 		
 		timeLimit.getChildren().addAll(tl1,tl, tlM, tl2, tlS, tl3);
 
-		layout.getChildren().addAll(debug, undo, throughCheck, afterCheck, topPlayer, timeLimit, sep, gameMode, stratagy, ok);
+		layout.getChildren().addAll(debug, undo, throughCheck, afterCheck, topPlayer, sep, gameMode, stratagy, ok);
 		App.SetMargins(layout);
 
 		Scene s = new Scene(layout);

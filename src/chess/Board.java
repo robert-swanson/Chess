@@ -30,6 +30,9 @@ public class Board {
 				seconds = 0;
 				minutes = 0;
 			}
+			public int toSeconds(){
+				return (minutes * 60 + seconds);
+			}
 			@Override
 			public String toString() {
 				switch (this) {
@@ -93,6 +96,7 @@ public class Board {
 			cantCastleAfterCheck = false;
 			topPlayer = false;
 			timeLimit = TimeLimit.off;
+			timeLimit.seconds = 0;
 			computerPlayer = false;
 			undo = true;
 			debug = false;
@@ -169,6 +173,9 @@ public class Board {
 	
 	long avTotal = 0;
 	long avCount = 0;
+	
+	SimpleDoubleProperty whiteTime;
+	SimpleDoubleProperty blackTime;
 
 	/**
 	 * Initailizes the pieces on the board according to what player is on the top
@@ -181,6 +188,8 @@ public class Board {
 		setUpBoard();
 		gameState = State.INPROGRESS;
 		winning = false;
+		whiteTime = new SimpleDoubleProperty(rules.timeLimit.toSeconds());
+		blackTime = new SimpleDoubleProperty(rules.timeLimit.toSeconds());
 	}
 	
 	public Board(SimpleBooleanProperty allowance, String importString, SimpleDoubleProperty p){
@@ -346,6 +355,12 @@ public class Board {
 		else
 			return blackPieces.get(p);
 	}
+	public SimpleDoubleProperty getTime(boolean top){
+		if(top == rules.topPlayer)
+			return whiteTime;
+		else
+			return blackTime;
+	}
 	public HashMap<Point, Piece> getPieces(boolean color){
 		if(color)
 			return whitePieces;
@@ -420,7 +435,7 @@ public class Board {
 	public void addCastleMoves(ArrayList<Move> moves, boolean color){
 		int y = rules.topPlayer==color ? 0 : 7;
 		King king = getKing(color);
-		if(king.moves > 0)
+		if(king.moves > 0 || !king.position.equals(new Point(4, y)))
 			return;
 		
 		boolean validL = true;

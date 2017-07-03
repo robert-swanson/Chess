@@ -42,7 +42,7 @@ public class Pawn extends Piece
 		if(forwardO == null && forward.isInBoard()){
 			Move m = new Move(pos, forward,board);
 			addSwitch(m, moves);
-			if(!(this.moves > 0) && jumpO == null)
+			if((this.moves <= 0) && jumpO == null)
 				moves.add(new Move(pos, jump, board));
 		}
 		board.setCaptures(moves);

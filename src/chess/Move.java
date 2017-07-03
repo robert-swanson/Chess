@@ -17,8 +17,10 @@ public class Move implements Comparable<Move>
 	public Point from;
 	public Point to;
 	public boolean me;
+	
 	public double score;
 	public double progressScore;
+	public boolean maximizer;
 
 	private Piece capturedPiece;
 	boolean capturedKing;
@@ -38,6 +40,8 @@ public class Move implements Comparable<Move>
 		this.checks = m.checks;
 		this.firstMove = m.firstMove;
 		this.castlingMove = m.castlingMove;
+		this.maximizer = m.maximizer;
+		this.progressScore  = m.progressScore;
 	}
 	public Move(Point from, Point to){
 		this(from, to, null);
@@ -49,8 +53,9 @@ public class Move implements Comparable<Move>
 		this.board = board;
 		this.piece = board.getPiece(from);
 		this.score = -9999;
+		this.maximizer = true;
 		if(this == null || piece == null){
-			System.out.println("HERE");
+			System.out.println("No Piece at " + from);
 		}
 		this.firstMove = !(piece.moves > 0);
 		this.castlingMove = false;
@@ -97,6 +102,8 @@ public class Move implements Comparable<Move>
 				board.removePiece(to, !me);
 		}
 		piece.position = to;
+		if(board == null || to == null)
+			System.out.println(this + " board is null");
 		board.getPiece(to).moves++;
 		if(castlingMove){
 			boolean left = to.x < 3;
@@ -136,10 +143,13 @@ public class Move implements Comparable<Move>
 		else if(!me && board.blackPieces.containsKey(to)){
 			board.blackPieces.put(from, board.blackPieces.remove(to));
 		}
+		else
+			System.err.printf("no piece\n");
 		if(capturedPiece != null)
 			board.putPiece(capturedPiece, to);
-		if(firstMove)
-			board.getPiece(from).moves = 0;
+		if(firstMove){
+			board.getPiece(from).moves = 0;	
+		}
 		if(checks != null && checks)
 			board.getKing(!me).moves = 0;
 		if(castlingMove){
@@ -231,6 +241,8 @@ public class Move implements Comparable<Move>
 	}
 	@Override
 	public int compareTo(Move o) {
-		return (int)(score - o.score);
+		if(score == o.score)
+			return 0;
+		return (int)(score - o.score) * (maximizer ? 1 : -1);
 	}
 }
