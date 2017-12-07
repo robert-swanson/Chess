@@ -3,6 +3,11 @@
 
 This program provides customization on chess gameplay, AI stratagy and effiecency, and debugging
 
+![Alt text](Window.png?raw=true)
+![Alt text](Settings.png?raw=true "Settings")
+
+
+
 ### Gameplay ###
 1. Gamemode:
     1. Player vs Player
