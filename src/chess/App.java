@@ -10,14 +10,12 @@ import java.util.Stack;
 import javax.swing.ImageIcon;
 
 import chess.Board.RuleSet.GameMode;
-import chess.Board.RuleSet.TimeLimit;
 import chess.pieces.Knight;
 import chess.pieces.Pawn;
 import chess.pieces.Piece;
 import chess.pieces.Queen;
 import javafx.animation.Animation.Status;
 import javafx.animation.FadeTransition;
-import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.ParallelTransition;
 import javafx.animation.PathTransition;
@@ -43,7 +41,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
@@ -59,10 +56,14 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 
 /**
- * Maneges the graphics and user actions
- * @author robertswanson
+ * Manages the graphics and user actions
+ * @author Robert Swanson
  */
 public class App extends Application {
+	/**
+	 * Handles displaying game messages to the user
+	 * @author Robert Swanson
+	 */
 	public class Messages{
 		public Label label;
 		public Board.State gameState;
@@ -126,24 +127,17 @@ public class App extends Application {
 		}
 	}
 
+	//Constants
 	final double Animation_Duration = .2; 
 	final int stop = -1;
 
-	Stage window;
-	Messages messages;
-	HashMap<Point, ImageView> whiteIcons;
-	HashMap<Point, ImageView> blackIcons;
-
+	//Gameplay
 	double step;
 	Board board;
-	Line turnIndicator;
 	SimpleBooleanProperty allowance;
 	int running;
 	ArrayList<Transition> animations;
 	SimpleDoubleProperty progress;
-
-	Point selected;
-
 	Move aisMove;
 	Status AIStatus;
 
@@ -151,12 +145,15 @@ public class App extends Application {
 
 	Tester tester;
 
-	//Panes
+	//UI
 	BorderPane masterLayout;
 	StackPane layout;
 	Canvas canvas;
-
 	BorderPane timerPanel;
+	Stage window;
+	Messages messages;
+	HashMap<Point, ImageView> whiteIcons;
+	HashMap<Point, ImageView> blackIcons;
 	HBox buttons;
 	Label topTime;
 	Label botTime;
@@ -170,6 +167,8 @@ public class App extends Application {
 	boolean paused = false;
 	ImageView coverPause;
 	ImageView stopStart;
+	Line turnIndicator;	
+	Point selected;
 
 	public static void main(String[] args){
 		launch(args);
@@ -182,6 +181,9 @@ public class App extends Application {
 	}
 
 	@Override
+	/**
+	 * Sets up the primary stage with the board in starting position
+	 */
 	public void start(Stage primaryStage) throws Exception {
 		allowance = new SimpleBooleanProperty(true);
 		progress = new SimpleDoubleProperty(0.0);
@@ -215,7 +217,7 @@ public class App extends Application {
 		stopStart.setPreserveRatio(true);
 		stopStart.setVisible(true);
 		stopStart.setOnMouseClicked(e-> {
-			stopStart();
+			allowance.set(!allowance.get());
 		});
 		stopStart.setFitHeight(19);
 		progressBar.getChildren().addAll(pBar, stopStart);
@@ -277,7 +279,7 @@ public class App extends Application {
 		masterLayout.setBottom(buttons);
 		masterLayout.setTop(top);
 		
-		initiateTimerPanel(window.getHeight()-300);
+//		initiateTimerPanel(window.getHeight()-300);
 		masterLayout.setLeft(timerPanel);
 
 		Scene board = new Scene(masterLayout);
@@ -298,155 +300,6 @@ public class App extends Application {
 		window.centerOnScreen();
 	}
 	
-	private void initiateTimerPanel(double height){
-		if(timerPanel == null){
-			
-			
-			ImageView c = new ImageView(getClass().getResource("clock.png").toString());
-			c.setPreserveRatio(true);
-			c.setVisible(true);
-			c.fitHeightProperty().set(100);
-			
-			hand = new ImageView(getClass().getResource("hand.png").toString());
-			hand.setPreserveRatio(true);
-			hand.setVisible(true);
-			hand.fitHeightProperty().set(100);
-			
-			topTime = new Label(formatTime(board.getTime(true).get()));
-			board.getTime(true).addListener(e -> {
-				topTime.setText(formatTime(board.getTime(true).get()));
-			});
-			botTime = new Label(formatTime(board.getTime(true).get()));
-			board.getTime(false).addListener(e -> {
-				botTime.setText(formatTime(board.getTime(true).get()));
-			});
-			
-			turnTimeD = new SimpleIntegerProperty(board.rules.timeLimit.minutes * 60 + board.rules.timeLimit.seconds);
-			turnTime = new Label(formatTime(turnTimeD.get()));
-
-			Image pause = new ImageView(getClass().getResource("pause.png").toString()).getImage(); 
-
-			pauseTime = new ImageView(pause);
-			pauseTime.setPreserveRatio(true);
-			pauseTime.setVisible(true);
-			pauseTime.fitHeightProperty().set(30);
-			paused = false;
-			pauseTime.setOnMouseClicked(e -> {
-				if(!paused){
-					pauseTurnTimer();
-				}
-				else{
-					resumeTurnTimer();
-				}
-			});
-
-			coverPause = new ImageView(getClass().getResource("coverPause.png").toString());
-			coverPause.setOpacity(0.75);
-			coverPause.setPreserveRatio(true);
-			coverPause.fitHeightProperty().bind(layout.heightProperty());
-			coverPause.setOnMouseClicked(e -> resumeTurnTimer());
-
-			
-			clock = new StackPane(c, hand);
-			
-			BorderPane.setAlignment(topTime, Pos.CENTER_RIGHT);
-			BorderPane.setAlignment(clock, Pos.CENTER);
-			BorderPane.setAlignment(botTime, Pos.CENTER_RIGHT);
-			BorderPane.setAlignment(pauseTime, Pos.CENTER);
-			
-			BorderPane.setMargin(clock, new Insets(0,10,0,10));
-			BorderPane.setMargin(topTime, new Insets(10,10,0,10));
-			BorderPane.setMargin(botTime, new Insets(0,10,10,10));
-
-		}
-		
-		timerPanel = new BorderPane();
-		timerPanel.setStyle("-fx-background-color: #d2dbdd");
-		
-		if(board.rules.timeLimit == TimeLimit.total){
-			timerPanel.setTop(topTime);
-			timerPanel.setBottom(botTime);
-			timerPanel.setCenter(pauseTime);
-		}
-		else if(board.rules.timeLimit == TimeLimit.turn){
-			VBox turn = new VBox(10);
-			turn.setAlignment(Pos.CENTER);
-			turn.getChildren().addAll(clock, turnTime, pauseTime);
-
-			timerPanel.setCenter(turn);
-		}
-			
-		
-		if(board.rules.timeLimit == TimeLimit.off){
-			masterLayout.setLeft(null);
-		}
-		else{
-			masterLayout.setLeft(timerPanel);
-		}
-	}
-	private String formatTime(double seconds){
-		return String.format("%d:%02d", (int)seconds / 60, (int)seconds % 60);
-	}
-	private void startTurnTimer(){
-		AIStatus = Status.RUNNING;
-		stopTurnTimer();
-		timer = new RotateTransition(Duration.seconds(board.rules.timeLimit.toSeconds()), hand);
-		timer.setFromAngle(0);
-		timer.setToAngle(360);
-		timer.setOnFinished(e -> forceMove());
-		timer.setInterpolator(Interpolator.LINEAR);
-		
-		tl = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
-			turnTimeD.set(turnTimeD.get()-1);
-			turnTime.setText(formatTime(turnTimeD.get()));
-		}));
-		tl.setCycleCount(turnTimeD.get());
-		timer.play();
-		tl.play();
-	}
-	private void stopTurnTimer(){
-		if(timer != null && timer.getStatus() == Status.RUNNING){
-			timer.stop();	
-			tl.stop();
-		}
-		turnTimeD.set(board.rules.timeLimit.toSeconds());
-		turnTime.setText(formatTime(turnTimeD.get()));
-		hand.setRotate(0.0);
-	}
-	private void pauseTurnTimer(){
-		AIStatus = Status.PAUSED;
-		paused = true;
-		if(timer != null && timer.getStatus() == Status.RUNNING)
-			timer.pause();
-		if(tl != null && tl.getStatus() == Status.RUNNING)
-			tl.pause();
-		Image play = new ImageView(getClass().getResource("play.png").toString()).getImage();
-		pauseTime.setImage(play);
-//		hideBoard();
-	}
-	private void resumeTurnTimer(){
-		paused = false;
-		if(timer != null && timer.getStatus() == Status.PAUSED){
-			timer.play();
-			tl.play();
-		}
-		Image pause = new ImageView(getClass().getResource("pause.png").toString()).getImage(); 
-		pauseTime.setImage(pause);
-		showBoard();
-		if(board.rules.mode == GameMode.cvc)
-			new AIMove(board).start();
-	}
-	
-//	private void hideBoard(){
-//		if(!isAllWell())
-//			System.out.println("Icons Disagree");
-//		if(!layout.getChildren().contains(coverPause))
-//			layout.getChildren().add(coverPause);
-//		for(Point p : board.blackPieces.keySet())
-//			blackIcons.get(p).setVisible(false);
-//		for(Point p : board.whitePieces.keySet())
-//			whiteIcons.get(p).setVisible(false);
-//	}
 	private void showBoard(){
 		layout.getChildren().remove(coverPause);
 		for(Point p : board.blackPieces.keySet())
@@ -592,20 +445,12 @@ public class App extends Application {
 		sButton.setPreserveRatio(true);
 		sButton.setVisible(true);
 		sButton.setOnMouseClicked(e-> {
-			if(board.rules.timeLimit == TimeLimit.turn)
-				pauseTurnTimer();
+			
 			SettingsView s = new SettingsView(board);
 			if(s.display())  
 				reset();
 			initButtonBar();
-			initiateTimerPanel(timerPanel.getHeight());
-			if(board.rules.timeLimit != TimeLimit.off){
-				if(board.rules.timeLimit == TimeLimit.turn)
-					startTurnTimer();
-				pauseTurnTimer();	
-			}
-			else
-				showBoard();
+			showBoard();
 			if(board.getIsAIPlayer() && AIStatus == Status.RUNNING)
 				new AIMove(board).start();
 		});
@@ -705,27 +550,7 @@ public class App extends Application {
 		}
 		return buttons;
 	}
-	private boolean stopStart(){
-//		if(allowance.get()){
-//			Image im = new ImageView(getClass().getResource("play.png").toString()).getImage();
-//			stopStart.setImage(im);
-//			AIStatus = Status.PAUSED;
-			stopTurnTimer();
-			allowance.set(false);
-			return false;
-//		}
-//		else{
-//			Image im = new ImageView(getClass().getResource("stop.png").toString()).getImage();
-//			stopStart.setImage(im);
-//			AIStatus = Status.RUNNING;
-//			if(board.rules.timeLimit == TimeLimit.turn)
-//				startTurnTimer();
-//			allowance.set(true);
-//			if(board.getIsAIPlayer())
-//				new AIMove(board).start();
-//			return true;
-//		}
-	}
+
 	private ImageView initPiece(Point p, boolean player, Piece piece){
 		String color = (player ? "White_" : "Black_") + piece.toString() + ".png";
 		ImageView icon = new ImageView(getClass().getResource(color).toString());
@@ -1060,27 +885,17 @@ public class App extends Application {
 				int temp = board.hashCode(board.white.keys);
 				int index = histHash.indexOf(temp);
 				if(index >= 0){
-					messages.message(String.format("Board State: %s found on lines %d and %d\n",temp, index+1, histHash.size()+1),Duration.seconds(2));
+					messages.message(String.format("%s conceding to repetition",board.turn ? "White" : "Black"),Duration.seconds(2));
 				}
 				histHash.add(temp);
 				if(!isAllWell()){
 					System.out.println("Icons Disagree");
 					AIStatus = Status.PAUSED;
 				}
-				stopTurnTimer();
-				if(board.rules.timeLimit == TimeLimit.turn && (!board.getIsAIPlayer() || !paused))
-					startTurnTimer();
 			}
 		}
 	}
-	private void forceMove(){
-		if(board.getIsAIPlayer())
-			allowance.set(false);
-		if(board.turn)
-			move(board.white.forceMove());
-		else
-			move(board.black.forceMove());
-	}
+	
 	private void setOnAIMoveOnFinish(Transition t){
 		t.setOnFinished(e -> {
 			if(board.getIsAIPlayer() && board.gameState == Board.State.INPROGRESS && allowance.get() && (AIStatus == Status.RUNNING || board.rules.mode == GameMode.pvc))
@@ -1135,8 +950,6 @@ public class App extends Application {
 		animations.clear();
 		allowance.set(true);
 		setupAnimation(Animation_Duration,0);
-		if(board.rules.timeLimit == TimeLimit.turn)
-			startTurnTimer();
 	}
 
 	private void startAllAnimations(){
@@ -1270,6 +1083,7 @@ public class App extends Application {
 					System.out.println("Calculation Interrupted By User");
 					return;
 				}
+				System.out.println(board.black.stratagy.transpositionTableDepth);
 				System.out.println("Calculation Failed");
 				throw e;
 			}

@@ -343,16 +343,41 @@ public class SettingsView{
 
 		depth.textProperty().addListener(e -> {
 			if(depth.getText().matches("\\d+")){
-				strat.depth = Integer.parseInt(depth.getText());
-			}
+				int d = Integer.parseInt(depth.getText());
+				if(d >= 0) {
+					strat.depth = d;
+					if(strat.transpositionTableDepth > d) {
+						strat.transpositionTableDepth = d;
+						ttd.setText(d+"");
+					}
+					if(strat.iterativedeepeningDepth > d) {
+						strat.iterativedeepeningDepth = d;
+						iDDepth.setText(d+"");
+					}
+					if(strat.killerHeuristicDepth > d) {
+						strat.killerHeuristicDepth = d;
+						kHDepth.setText(d+"");
+					}
+					if(strat.checkDepth > d) {
+						strat.checkDepth = d;
+						cDepth.setText(d+"");
+					}
+				}
+				else if(depth.getText().length() > 0)
+					depth.setText(""+strat.depth);	
+				}
 			else if(depth.getText().length() > 0)
-				depth.setText(""+strat.depth);
-			
+				depth.setText(strat.depth+"");
 		});
 		
 		cDepth.textProperty().addListener(e -> {
 			if(cDepth.getText().matches("\\d+")){
-				strat.checkDepth = Integer.parseInt(cDepth.getText());
+				int cd = Integer.parseInt(cDepth.getText());
+				if(cd <= strat.depth)
+					strat.checkDepth = cd;
+				else
+					cDepth.setText(strat.depth+"");
+				
 			}
 			else if(cDepth.getText().length() > 0)
 				cDepth.setText(""+strat.checkDepth);
@@ -381,7 +406,12 @@ public class SettingsView{
 		
 		ttd.textProperty().addListener(e -> {
 			if(ttd.getText().matches("\\d+")){
-				strat.transpositionTableDepth = Integer.parseInt(ttd.getText());
+				int td = Integer.parseInt(ttd.getText());
+				if(td <= strat.depth)
+					strat.transpositionTableDepth = td;
+				else
+					ttd.setText(strat.depth+"");
+				
 			}
 			else if(ttd.getText().length() > 0)
 				ttd.setText(""+strat.transpositionTableDepth);
@@ -393,7 +423,11 @@ public class SettingsView{
 
 		kHDepth.textProperty().addListener(e -> {
 			if(kHDepth.getText().matches("\\d+")){
-				strat.killerHeuristicDepth = Integer.parseInt(kHDepth.getText());
+				int kh = Integer.parseInt(kHDepth.getText());
+				if(kh <= strat.depth)
+					strat.killerHeuristicDepth = kh;
+				else
+					kHDepth.setText(strat.depth+"");
 			}
 			else if(kHDepth.getText().length() > 0)
 				kHDepth.setText(""+strat.killerHeuristicDepth);
@@ -405,10 +439,14 @@ public class SettingsView{
 
 		iDDepth.textProperty().addListener(e -> {
 			if(iDDepth.getText().matches("\\d+")){
-				strat.iterativedeepeningDepth = Integer.parseInt(iDDepth.getText());
+				int id = Integer.parseInt(iDDepth.getText());
+				if(id <= strat.depth)
+					strat.iterativedeepeningDepth = id;
+				else
+					iDDepth.setText(strat.depth+"");
 			}
 			else if(iDDepth.getText().length() > 0)
-				iDDepth.setText(""+strat.killerHeuristicDepth);
+				iDDepth.setText(""+strat.iterativedeepeningDepth);
 		});
 
 	}
