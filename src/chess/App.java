@@ -7,10 +7,13 @@ import java.util.HashMap;
 import java.util.Stack;
 
 import chess.Board.RuleSet.GameMode;
+import chess.pieces.Bishop;
+import chess.pieces.King;
 import chess.pieces.Knight;
 import chess.pieces.Pawn;
 import chess.pieces.Piece;
 import chess.pieces.Queen;
+import chess.pieces.Rook;
 import javafx.animation.Animation.Status;
 import javafx.animation.FadeTransition;
 import javafx.animation.KeyFrame;
@@ -25,6 +28,7 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.collections.ObservableList;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
@@ -34,6 +38,7 @@ import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.Separator;
@@ -41,6 +46,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
@@ -132,11 +138,14 @@ public class App extends Application {
 	double step;
 	Board board;
 	SimpleBooleanProperty allowance;
-	int running;
 	ArrayList<Transition> animations;
 	SimpleDoubleProperty progress;
 	Move aisMove;
 	Status AIStatus;
+	CheckBox castleWL;
+	CheckBox castleWR;
+	CheckBox castleBL;
+	CheckBox castleBR;
 
 	ArrayList<Integer> histHash = new ArrayList<>();
 
@@ -166,6 +175,11 @@ public class App extends Application {
 	ImageView stopStart;
 	Line turnIndicator;	
 	Point selected;
+	boolean editing = false;
+	Piece draggedPiece = null;
+	ImageView draggedIcon = null;
+	double[] draggedCoords = new double[2];
+	double[] mouseCoords = new double[2];
 
 	public static void main(String[] args){
 		launch(args);
@@ -201,14 +215,14 @@ public class App extends Application {
 		VBox top = new VBox(10);
 		HBox messBox = new HBox(mess);
 		HBox progressBar = new HBox(10);
-		
+
 		//Progress Bar
 		ProgressBar pBar = new ProgressBar();
 		VBox.setMargin(progressBar, new Insets(10,10,0,10));
 		pBar.prefWidthProperty().bind(top.widthProperty());
 		top.setAlignment(Pos.CENTER);
 		pBar.progressProperty().bind(progress);
-		
+
 		//Stop Button
 		stopStart = new ImageView(getClass().getResource("stop.png").toString());
 		stopStart.setPreserveRatio(true);
@@ -218,8 +232,8 @@ public class App extends Application {
 		});
 		stopStart.setFitHeight(19);
 		progressBar.getChildren().addAll(pBar, stopStart);
-		
-		
+
+
 		top.getChildren().addAll(progressBar,messBox);
 
 		messBox.setAlignment(Pos.CENTER);
@@ -244,9 +258,9 @@ public class App extends Application {
 		window.setMinWidth(450);
 
 		try {
-//			URL iconURL = App.class.getResource("Black_King.png");
-//			java.awt.Image image = new ImageIcon(iconURL).getImage();
-//			com.apple.eawt.Application.getApplication().setDockIconImage(image);
+			//			URL iconURL = App.class.getResource("Black_King.png");
+			//			java.awt.Image image = new ImageIcon(iconURL).getImage();
+			//			com.apple.eawt.Application.getApplication().setDockIconImage(image);
 		} catch (Exception e) {
 			// Won't work on Windows or Linux.
 		}
@@ -275,8 +289,8 @@ public class App extends Application {
 		masterLayout.setCenter(layout);
 		masterLayout.setBottom(buttons);
 		masterLayout.setTop(top);
-		
-//		initiateTimerPanel(window.getHeight()-300);
+
+		//		initiateTimerPanel(window.getHeight()-300);
 		masterLayout.setLeft(timerPanel);
 
 		Scene board = new Scene(masterLayout);
@@ -285,8 +299,9 @@ public class App extends Application {
 
 		//Mouse Handler
 		canvas.setOnMouseClicked(e -> {
-			click(e.getX(), e.getY(),null);
+			click(e.getSceneX(), e.getSceneY(),null);
 		});
+
 
 
 		//Show the Window
@@ -296,7 +311,7 @@ public class App extends Application {
 		setupAnimation(Animation_Duration,0);
 		window.centerOnScreen();
 	}
-	
+
 	private void showBoard(){
 		layout.getChildren().remove(coverPause);
 		for(Point p : board.blackPieces.keySet())
@@ -376,166 +391,314 @@ public class App extends Application {
 	}
 
 	private HBox initButtonBar(){
-		//Buttons
 		HBox buttons = new HBox(10);
 		buttons.setAlignment(Pos.CENTER);
 		buttons.setPadding(new Insets(10,0,10,0));
+		if(!editing) {
+			//Buttons
 
-		Button tree = new Button("Tree");
-		tree.setOnAction(e -> {
-			if(board.turn)
-				board.black.parent.print();
-			else
-				board.white.parent.print();
-			try {
-				Desktop.getDesktop().open(new File("ChessTree.txt"));
-			} catch (IOException e1) {
-				System.err.println("No File Named ChessTree.txt");
-				e1.printStackTrace();
-			}
-		});
-
-		Button reanimate = new Button("Show Last");
-		reanimate.setOnAction(e -> {
-			Move last = board.history.peek();
-			undo(.001);
-			move(last);
-		});
-
-		Button reset = new Button("Restart");
-		reset.setOnAction(e -> reset());
-
-		Button sync = new Button("Sync");
-		sync.setOnAction(e -> {
-			initiatePieces();
-			resize();
-			setupAnimation(.0001, 0);
-		});
-
-		Button print = new Button("Print");
-		print.setOnAction(e -> {
-			board.print();
-		});
-
-
-		Button undo = new Button("Undo");
-		undo.setOnAction(e -> {
-			switch(board.rules.mode){
-			case cvc:
-				if(AIStatus == Status.PAUSED)
-					undo(Animation_Duration);
-				break;
-			case pvc:
-				undo(Animation_Duration);
-				undo(Animation_Duration);
-				break;
-			case pvp:
-				undo(Animation_Duration);
-				break;
-			default:
-				break;
-			}
-			initiateBoard();
-		});
-
-		ImageView sButton = new ImageView(getClass().getResource("settings.png").toString());
-		sButton.setPreserveRatio(true);
-		sButton.setVisible(true);
-		sButton.setOnMouseClicked(e-> {
-			
-			SettingsView s = new SettingsView(board);
-			if(s.display())  
-				reset();
-			initButtonBar();
-			showBoard();
-			if(board.getIsAIPlayer() && AIStatus == Status.RUNNING)
-				new AIMove(board).start();
-		});
-
-
-		Button stepT = new Button("Step");
-		stepT.setOnAction(e -> {
-			if(board.getIsAIPlayer())
-				new AIMove(board).start();
-		});
-
-		Button pausePlay = new Button(AIStatus == Status.PAUSED ? "Play" : "Pause");
-		pausePlay.setOnAction(e -> {
-			if(board.rules.mode == GameMode.cvc){
-				if(AIStatus == Status.PAUSED){
-					pausePlay.setText("Pause");
-					AIStatus = Status.RUNNING;
-					new AIMove(board).start();
-				}
-				else{
-					pausePlay.setText("Play");
-					AIStatus = Status.PAUSED;
-					allowance.set(false);
-				}
-			}
-		});
-
-		//		Button copy = new Button("Copy");
-		//		copy.setOnAction(e -> {
-		//			ClipboardContent content = new ClipboardContent();
-		//			content.putString(board.exportToString());
-		//			Clipboard.getSystemClipboard().setContent(content);
-		//			messages.message("Copied", Duration.seconds(1));
-		//		});
-		Button hist = new Button("History");
-		hist.setOnAction(e -> {
-			ClipboardContent content = new ClipboardContent();
-			content.putString(board.history.toString());
-			Clipboard.getSystemClipboard().setContent(content);
-			messages.message(String.format("Copied History to Clipboard, Size: %d",board.history.size()), Duration.seconds(1));
-		});
-
-		Button load = new Button("Load");
-		load.setOnAction(e -> {
-			String content = Clipboard.getSystemClipboard().getString();
-			board = new Board(allowance, content, progress);
-			initiatePieces();
-			resize();
-			setupAnimation(.0001, 0);
-		});
-
-
-		Button test = new Button("Test");
-		test.setOnAction(e -> {
-			if(test.getText().equals("Test")){
-				test.setText("Stop");
-				tester.start();
+			Button tree = new Button("Tree");
+			tree.setOnAction(e -> {
+				if(board.turn)
+					board.black.parent.print();
+				else
+					board.white.parent.print();
 				try {
-					Desktop.getDesktop().open(new File("Learner.txt"));
+					Desktop.getDesktop().open(new File("ChessTree.txt"));
 				} catch (IOException e1) {
 					System.err.println("No File Named ChessTree.txt");
 					e1.printStackTrace();
 				}
-			}
+			});
+
+			Button reanimate = new Button("Show Last");
+			reanimate.setOnAction(e -> {
+				Move last = board.history.peek();
+				undo(.001);
+				move(last);
+			});
+
+			Button reset = new Button("Restart");
+			reset.setOnAction(e -> reset());
+
+			Button sync = new Button("Sync");
+			sync.setOnAction(e -> {
+				initiatePieces();
+				resize();
+				setupAnimation(.0001, 0);
+			});
+
+			Button edit = new Button("Edit");
+			edit.setOnAction(e -> {
+				if(board.rules.mode == GameMode.pvc && board.getIsAIPlayer())
+					messages.message("Please wait until the AI has moved before editing", Duration.seconds(5));
+				else if(board.rules.mode == GameMode.cvc && AIStatus != Status.RUNNING)
+					messages.message("Please pause the AIs before editing", Duration.seconds(5));
+				else {
+					editing = true;
+					messages.message("Click pieces to move them", Duration.seconds(10));
+					initButtonBar();
+				}
+			});
+
+			Button print = new Button("Print");
+			print.setOnAction(e -> {
+				board.print();
+			});
+
+
+			Button undo = new Button("Undo");
+			undo.setOnAction(e -> {
+				switch(board.rules.mode){
+				case cvc:
+					if(AIStatus == Status.PAUSED)
+						undo(Animation_Duration);
+					break;
+				case pvc:
+					undo(Animation_Duration);
+					undo(Animation_Duration);
+					break;
+				case pvp:
+					undo(Animation_Duration);
+					break;
+				default:
+					break;
+				}
+				initiateBoard();
+			});
+
+			ImageView sButton = new ImageView(getClass().getResource("settings.png").toString());
+			sButton.setPreserveRatio(true);
+			sButton.setVisible(true);
+			sButton.setOnMouseClicked(e-> {
+				SettingsView s = new SettingsView(board);
+				if(s.display())  
+					reset();
+				initButtonBar();
+				showBoard();
+				if(board.getIsAIPlayer() && AIStatus == Status.RUNNING)
+					new AIMove(board).start();
+			});
+
+
+			Button stepT = new Button("Step");
+			stepT.setOnAction(e -> {
+				if(board.getIsAIPlayer())
+					new AIMove(board).start();
+			});
+
+			Button pausePlay = new Button(AIStatus == Status.PAUSED ? "Play" : "Pause");
+			pausePlay.setOnAction(e -> {
+				if(board.rules.mode == GameMode.cvc){
+					if(AIStatus == Status.PAUSED){
+						pausePlay.setText("Pause");
+						AIStatus = Status.RUNNING;
+						new AIMove(board).start();
+					}
+					else{
+						pausePlay.setText("Play");
+						AIStatus = Status.PAUSED;
+						allowance.set(false);
+					}
+				}
+			});
+
+			//		Button copy = new Button("Copy");
+			//		copy.setOnAction(e -> {
+			//			ClipboardContent content = new ClipboardContent();
+			//			content.putString(board.exportToString());
+			//			Clipboard.getSystemClipboard().setContent(content);
+			//			messages.message("Copied", Duration.seconds(1));
+			//		});
+			Button hist = new Button("History");
+			hist.setOnAction(e -> {
+				ClipboardContent content = new ClipboardContent();
+				content.putString(board.history.toString());
+				Clipboard.getSystemClipboard().setContent(content);
+				messages.message(String.format("Copied History to Clipboard, Size: %d",board.history.size()), Duration.seconds(1));
+			});
+
+			Button load = new Button("Load");
+			load.setOnAction(e -> {
+				String content = Clipboard.getSystemClipboard().getString();
+				board = new Board(allowance, content, progress);
+				initiatePieces();
+				resize();
+				setupAnimation(.0001, 0);
+			});
+
+
+			Button test = new Button("Test");
+			test.setOnAction(e -> {
+				if(test.getText().equals("Test")){
+					test.setText("Stop");
+					tester.start();
+					try {
+						Desktop.getDesktop().open(new File("Learner.txt"));
+					} catch (IOException e1) {
+						System.err.println("No File Named ChessTree.txt");
+						e1.printStackTrace();
+					}
+				}
+				else{
+					allowance.set(false);
+					test.setText("Test");
+				}
+
+			});
+			sButton.fitHeightProperty().set(20);;
+
+
+			buttons.getChildren().addAll(sButton, reset, hist, edit);
+			if(board.rules.undo)
+				buttons.getChildren().addAll(undo);
+			if(board.rules.mode != GameMode.cvc)
+				buttons.getChildren().addAll(reanimate);
 			else{
-				allowance.set(false);
-				test.setText("Test");
+				buttons.getChildren().addAll(pausePlay);
+				buttons.getChildren().addAll(stepT);	
 			}
+			if(board.rules.debug){
+				Separator sep = new Separator(Orientation.VERTICAL);
+				buttons.getChildren().addAll(sep, print, tree, sync, test);
+			}
+			//		this.buttons.getChildren().clear();
+			//		this.buttons.getChildren().addAll(buttons.getChildren());
 
-		});
-		sButton.fitHeightProperty().set(20);;
 
-
-		buttons.getChildren().addAll(sButton, reset, hist);
-		if(board.rules.undo)
-			buttons.getChildren().addAll(undo);
-		if(board.rules.mode != GameMode.cvc)
-			buttons.getChildren().addAll(reanimate);
-		else{
-			buttons.getChildren().addAll(pausePlay);
-			buttons.getChildren().addAll(stepT);	
 		}
-		if(board.rules.debug){
-			Separator sep = new Separator(Orientation.VERTICAL);
-			buttons.getChildren().addAll(sep, print, tree, sync, test);
+		else {
+			Button done = new Button("Done");
+			done.setOnAction(e -> {
+				System.out.println("Done Editing");
+				editing = false;
+				for(Point p : board.blackPieces.keySet())
+					blackIcons.get(p).setVisible(true);
+				for(Point p : board.whitePieces.keySet())
+					whiteIcons.get(p).setVisible(true);
+				initButtonBar();
+				board.print();
+			});
+
+			Button delete = new Button("Delete");
+			delete.setDisable(true);
+			delete.setOnAction(e -> {
+				System.out.println("Delete");
+				if(draggedIcon != null) {
+					layout.getChildren().remove(draggedIcon);	
+					draggedIcon.setOnMouseMoved(null);
+					canvas.setOnMouseMoved(null);
+					draggedIcon = null;
+					setDoneDisable(false);
+				}
+				if(draggedPiece != null) {
+					board.edit(draggedPiece, null);
+					draggedPiece = null;
+				}
+			});
+
+			Button turn = new Button((board.turn ? "White" : "Black") + "'s turn");
+			turn.setOnAction(e -> {
+				board.turn = !board.turn;
+				turn.setText((board.turn ? "White" : "Black") + "'s turn");
+				initiateBoard();
+			});
+			
+			Button wQueen = new Button();
+			wQueen.setGraphic(getImageView("Queen", true));
+			wQueen.setOnAction(e -> {
+				Piece n = new Queen(true, null);
+				addPiece(n, wQueen.getLayoutX(), wQueen.getLayoutY());
+			});
+
+			Button wRook = new Button();
+			wRook.setGraphic(getImageView("Rook", true));
+			wRook.setOnAction(e -> {
+				Piece n = new Rook(true, null);
+				addPiece(n, wRook.getLayoutX(), wRook.getLayoutY());
+			});
+
+			Button wBishop = new Button();
+			wBishop.setGraphic(getImageView("Bishop", true));
+			wBishop.setOnAction(e -> {
+				Piece n = new Bishop(true, null);
+				addPiece(n, wBishop.getLayoutX(), wBishop.getLayoutY());
+			});
+
+			Button wKnight = new Button();
+			wKnight.setGraphic(getImageView("Knight", true));
+			wKnight.setOnAction(e -> {
+				Piece n = new Knight(true, null);
+				addPiece(n, wKnight.getLayoutX(), wKnight.getLayoutY());
+			});
+
+			Button wPawn = new Button();
+			wPawn.setGraphic(getImageView("Pawn", true));
+			wPawn.setOnAction(e -> {
+				Piece n = new Pawn(true, null);
+				addPiece(n, wPawn.getLayoutX(), wPawn.getLayoutY());
+			});
+
+			Button bQueen = new Button();
+			bQueen.setGraphic(getImageView("Queen", false));
+			bQueen.setOnAction(e -> {
+				Piece n = new Queen(false, null);
+				addPiece(n, bQueen.getLayoutX(), bQueen.getLayoutY());
+			});
+
+			Button bRook = new Button();
+			bRook.setGraphic(getImageView("Rook", false));
+			bRook.setOnAction(e -> {
+				Piece n = new Rook(false, null);
+				addPiece(n, bRook.getLayoutX(), bRook.getLayoutY());
+			});
+
+			Button bBishop = new Button();
+			bBishop.setGraphic(getImageView("Bishop", false));
+			bBishop.setOnAction(e -> {
+				Piece n = new Bishop(false, null);
+				addPiece(n, bBishop.getLayoutX(), bBishop.getLayoutY());
+			});
+
+			Button bKnight = new Button();
+			bKnight.setGraphic(getImageView("Knight", false));
+			bKnight.setOnAction(e -> {
+				Piece n = new Knight(false, null);
+				addPiece(n, bKnight.getLayoutX(), bKnight.getLayoutY());
+			});
+
+			Button bPawn = new Button();
+			bPawn.setGraphic(getImageView("Pawn", false));
+			bPawn.setOnAction(e -> {
+				Piece n = new Pawn(false, null);
+				addPiece(n, bPawn.getLayoutX(), bPawn.getLayoutY());
+			});
+
+			castleWL = new CheckBox("Castle WL");
+			castleWR = new CheckBox("Castle WR");
+			castleBL = new CheckBox("Castle BL");
+			castleBR = new CheckBox("Castle BR");
+
+			castleWL.setOnAction(e -> {
+				setPieceCastle(true, true, castleWL.isSelected());
+			});
+			castleWR.setOnAction(e -> {
+				setPieceCastle(false, true, castleWR.isSelected());
+			});
+			castleBL.setOnAction(e -> {
+				setPieceCastle(true, false, castleBL.isSelected());
+			});
+			castleBR.setOnAction(e -> {
+				setPieceCastle(false, false, castleBR.isSelected());
+			});
+
+			updateCastleCheckBoxes();
+
+			buttons.getChildren().addAll(done,delete,turn,wQueen,wRook,wBishop,wKnight,wPawn,bQueen,bRook,bBishop,bKnight,bPawn,castleWL,castleWR,castleBL,castleBR);
+
+
 		}
-		//		this.buttons.getChildren().clear();
-		//		this.buttons.getChildren().addAll(buttons.getChildren());
+
 
 		if(this.buttons == null){
 			this.buttons = buttons;
@@ -547,13 +710,74 @@ public class App extends Application {
 		}
 		return buttons;
 	}
+	
+	private void setPieceCastle(boolean left, boolean color, boolean canCaslte) {
+		Piece k = board.getPiece(new Point(board.rules.topPlayer ? 3 : 4, color == board.rules.topPlayer ? 0 : 7));
+		Piece p = board.getPiece(new Point(left ? 0 : 7,board.rules.topPlayer == color ? 0 : 7));
+		if(p != null)
+			p.moves = canCaslte ? 0 : Math.max(1, p.moves);
+		if(canCaslte)
+			k.moves = 0;
+		updateCastleCheckBoxes();
+	}
+	
+
+	private void updateCastleCheckBoxes() {
+		boolean top = board.rules.topPlayer;
+		int wy = top ? 0 : 7;
+		int by = top ? 7 : 0;
+		Piece whiteKing = top ? board.getPiece(new Point(3,0)) : board.getPiece(new Point(4,7));
+		Piece whiteRookL = board.getPiece(new Point(0,wy));
+		Piece whiteRookR = board.getPiece(new Point(7,wy));
+		Piece blackKing = top ? board.getPiece(new Point(3,7)) : board.getPiece(new Point(4,0));
+		Piece blackRookL = board.getPiece(new Point(0,by));
+		Piece blackRookR = board.getPiece(new Point(7,by));
+		
+		boolean wl = whiteKing != null && whiteRookL != null;
+		boolean wr = whiteKing != null && whiteRookR != null;
+		boolean bl = blackKing != null && blackRookL != null;
+		boolean br = blackKing != null && blackRookR != null;
+		
+		castleWL.setDisable(!wl);
+		castleWR.setDisable(!wr);
+		castleBL.setDisable(!bl);
+		castleBR.setDisable(!br);
+		
+		castleWL.setSelected(wl && whiteKing.moves == 0 && whiteRookL.moves == 0);
+		castleWR.setSelected(wr && whiteKing.moves == 0 && whiteRookR.moves == 0);
+		castleBL.setSelected(bl && blackKing.moves == 0 && blackRookL.moves == 0);
+		castleBR.setSelected(br && blackKing.moves == 0 && blackRookR.moves == 0);
+	}
+	
+	private void addPiece(Piece p, double x, double y) {
+		draggedIcon = initPiece(null, p.isWhite(), p);
+		layout.getChildren().add(draggedIcon);
+		draggedPiece = p;
+		draggedCoords[0] = draggedIcon.translateXProperty().get();
+		draggedCoords[1] = draggedIcon.translateYProperty().get();
+		EventHandler<MouseEvent> handleMouseMove = e -> mouseMove(e.getSceneX(), e.getSceneY());
+		draggedIcon.toFront();
+		draggedIcon.setFitWidth(step);
+		draggedIcon.setOnMouseMoved(handleMouseMove);
+
+		canvas.setOnMouseMoved(handleMouseMove);
+		setDoneDisable(true);
+	}
+
+	private ImageView getImageView(String s, boolean color) {
+		String name = (color ? "White_" : "Black_") + s + ".png";
+		ImageView icon = new ImageView(getClass().getResource(name).toString());
+		icon.setPreserveRatio(true);
+		icon.setFitHeight(17);
+		return icon;
+	}
 
 	private ImageView initPiece(Point p, boolean player, Piece piece){
 		String color = (player ? "White_" : "Black_") + piece.toString() + ".png";
 		ImageView icon = new ImageView(getClass().getResource(color).toString());
 		icon.setPreserveRatio(true);
 		icon.setVisible(false);
-		icon.setOnMouseClicked(e-> click(0,0,p));
+		icon.setOnMouseClicked(e-> click(e.getSceneX(),e.getSceneY(),null));
 		return icon;
 	}
 
@@ -616,12 +840,12 @@ public class App extends Application {
 		ImageView icon;
 		if(whiteIcons.containsKey(from)){
 			icon = whiteIcons.remove(from);
-			icon.setOnMouseClicked(e-> click(0,0,to));
+			icon.setOnMouseClicked(e-> click(e.getSceneX(),e.getSceneY(),to));
 			whiteIcons.put(to, icon);
 		}
 		else if(blackIcons.containsKey(from)){
 			icon = blackIcons.remove(from);
-			icon.setOnMouseClicked(e-> click(0,0,to));
+			icon.setOnMouseClicked(e-> click(e.getSceneX(),e.getSceneY(),to));
 			blackIcons.put(to, icon);
 		}
 		else{
@@ -753,6 +977,12 @@ public class App extends Application {
 		return new double[]{(step * p.x), (step * p.y)};
 	}
 
+	private double[] getCanvasCoord(double x, double y) {
+		double offX = (window.widthProperty().get()-canvas.widthProperty().get())/2.0;
+		double offY = (window.heightProperty().get()-canvas.heightProperty().get())/2.0;
+		return new double[] {x - offX, y - offY};
+	}
+
 	/**
 	 * Gets the point of a click on the canvas
 	 * @param x
@@ -768,6 +998,8 @@ public class App extends Application {
 		return new Point((int)x, (int)y);
 	}
 
+
+
 	/**
 	 * Handles the click event at either the given point or canvas coordinates
 	 * @param x
@@ -778,47 +1010,164 @@ public class App extends Application {
 	 * Point clicked
 	 */
 	private void click(double x, double y, Point p){
-		if(board.gameState != Board.State.INPROGRESS){
-			messages.gameOver();
-			return;
-		}
-		if(board.rules.mode.toString().equals("Computer vs Computer")){
-			System.out.println("CVC");
-			return;	
-		}
-		Point clicked;
-		if(p == null)
-			clicked = getPoint(x, y);
-		else
-			clicked = p;
-
-		if(selected == null){ //Initial selection
-			if(!board.getIsAIPlayer() && playerHasPiece(clicked, board.turn))
-				select(clicked);
-			else if(playerHasPiece(clicked, !board.turn))
-				messages.notYourTurn();
-			else if(board.getIsAIPlayer())
-				messages.message("You Cannot Move For The AI", Duration.seconds(3));
-		}
-		else{
-			if(!playerHasPiece(clicked, board.turn) && !board.getIsAIPlayer() && playerHasPiece(selected, board.turn)){	//Move
-				Move m = new Move(selected, clicked, board);
-				if(m.piece instanceof Pawn && (m.to.y == 0 || m.to.y == 7)){
-					if(new Switcher().display())	//Queen
-						m.changedTo = new Queen(m.me, m.to);
-					else							//Knight
-						m.changedTo = new Knight(m.me, m.to);
-				}
-
-				move(m);
-				deSelect();
+		double[] coord = getCanvasCoord(x, y);
+		Point clicked = getPoint(coord[0],coord[1]);
+		if(!editing) {
+			if(board.gameState != Board.State.INPROGRESS){
+				messages.gameOver();
+				return;
 			}
-			else{										//Reselected
-				deSelect();
-				select(clicked);
+			if(board.rules.mode.toString().equals("Computer vs Computer")){
+				System.out.println("CVC");
+				return;	
+			}
+
+			if(selected == null){ //Initial selection
+				if(!board.getIsAIPlayer() && playerHasPiece(clicked, board.turn))
+					select(clicked);
+				else if(playerHasPiece(clicked, !board.turn))
+					messages.notYourTurn();
+				else if(board.getIsAIPlayer())
+					messages.message("You Cannot Move For The AI", Duration.seconds(3));
+			}
+			else{
+				if(!playerHasPiece(clicked, board.turn) && !board.getIsAIPlayer() && playerHasPiece(selected, board.turn)){	//Move
+					Move m = new Move(selected, clicked, board);
+					if(m.piece instanceof Pawn && (m.to.y == 0 || m.to.y == 7)){
+						if(new Switcher().display())	//Queen
+							m.changedTo = new Queen(m.me, m.to);
+						else							//Knight
+							m.changedTo = new Knight(m.me, m.to);
+					}
+
+					move(m);
+					deSelect();
+				}
+				else{										//Reselected
+					deSelect();
+					select(clicked);
+				}
+			}	
+		}
+		else if(clicked.isInBoard()) {
+			if(draggedPiece != null) { //Put down piece
+				if(board.validPos(draggedPiece, clicked) == null) {
+					messages.message("Invalid position for "+draggedPiece.toString(), Duration.seconds(5));
+					return;
+				}
+				draggedIcon.setVisible(true);
+				draggedIcon.setOnMouseMoved(null);
+				canvas.setOnMouseMoved(null);
+				ImageView replaced =  null;
+				if(whiteIcons.containsKey(clicked))
+					replaced = whiteIcons.remove(clicked);
+				else if(blackIcons.containsKey(clicked))
+					replaced = blackIcons.remove(clicked);
+				if(draggedPiece.isWhite()) {
+					whiteIcons.put(clicked, draggedIcon != null ? draggedIcon : whiteIcons.remove(draggedPiece.position));	
+				}else{
+					blackIcons.put(clicked, draggedIcon != null ? draggedIcon : blackIcons.remove(draggedPiece.position));	
+				}
+				if(clicked.equals(draggedPiece.position))
+					draggedPiece = null;
+				else
+					draggedPiece = board.edit(draggedPiece, clicked);
+
+				double[] layCoord = getLayoutCoord(clicked);
+				Line path = new Line(draggedIcon.translateXProperty().get()+draggedIcon.getFitWidth()/2.0, draggedIcon.translateYProperty().get()+draggedIcon.getFitWidth()/2.0, layCoord[0], layCoord[1]);
+				PathTransition move = new PathTransition();
+				move.setPath(path);
+				move.setDuration(Duration.seconds(.25));
+				move.setNode(draggedIcon);
+				move.playFromStart();
+				animations.add(move);
+				move.setOnFinished(e -> animations.remove(move));
+				updateCastleCheckBoxes();
+
+				if(draggedPiece != null) { //Replace piece
+					draggedIcon = replaced;
+					draggedCoords = getCanvasCoord(draggedPiece.position);
+					EventHandler<MouseEvent> handleMouseMove = e -> mouseMove(e.getSceneX(), e.getSceneY());
+					if(draggedIcon != null) {
+						draggedIcon.setOnMouseMoved(handleMouseMove);
+						draggedIcon.toFront();
+					}
+					else {
+						System.err.println("Piece is null");
+						throw new NullPointerException();
+					}
+					canvas.setOnMouseMoved(handleMouseMove);
+					setDoneDisable(true);
+					if(draggedPiece instanceof King) {
+						for(Node n: buttons.getChildren()) {
+							if(n instanceof Button) {
+								Button b = (Button)n;
+								if(b.getText().equals("Delete"))
+									b.setDisable(true);
+							}
+						}
+					}
+				}
+				else {
+					setDoneDisable(false);
+				}
+			}
+			else if(board.getPiece(clicked) != null) { //Pick up piece
+				draggedPiece = board.getPiece(clicked);
+				draggedIcon = (draggedPiece.isWhite() ? whiteIcons.get(clicked) : blackIcons.get(clicked));
+				draggedCoords = getCanvasCoord(draggedPiece.position);
+				EventHandler<MouseEvent> handleMouseMove = e -> mouseMove(e.getSceneX(), e.getSceneY());
+				draggedIcon.toFront();
+				draggedIcon.setOnMouseMoved(handleMouseMove);
+				canvas.setOnMouseMoved(handleMouseMove);
+				setDoneDisable(true);
+				if(draggedPiece instanceof King) {
+					for(Node n: buttons.getChildren()) {
+						if(n instanceof Button) {
+							Button b = (Button)n;
+							if(b.getText().equals("Delete"))
+								b.setDisable(true);
+						}
+					}
+				}
+			}	
+		}else {
+			System.out.println("Delete");
+			if(draggedIcon != null) {
+				layout.getChildren().remove(draggedIcon);	
+				draggedIcon.setOnMouseMoved(null);
+				canvas.setOnMouseMoved(null);
+				draggedIcon = null;
+				setDoneDisable(false);
+			}
+			if(draggedPiece != null) {
+				board.edit(draggedPiece, null);
+				draggedPiece = null;
 			}
 		}
 	}
+
+	private void setDoneDisable(boolean value) {
+		for(Node n: buttons.getChildren()) {
+			if(n instanceof Button) {
+				Button b = (Button)n;
+				if(b.getText().equals("Delete"))
+					b.setDisable(!value);
+				else
+					b.setDisable(value);
+			}
+		}
+	}
+
+	private void mouseMove(double x, double y) {
+		double[] canvasCoord = getCanvasCoord(x, y);
+		draggedIcon.setTranslateX(canvasCoord[0]-canvas.widthProperty().get()/2.0);
+		draggedIcon.setTranslateY(canvasCoord[1]-canvas.heightProperty().get()/2.0);
+		mouseCoords[0] = x;
+		mouseCoords[1] = y;
+		draggedIcon.setVisible(true);
+	}
+
 
 	private void move(Move m){
 		if(m == null)
@@ -892,7 +1241,7 @@ public class App extends Application {
 			}
 		}
 	}
-	
+
 	private void setOnAIMoveOnFinish(Transition t){
 		t.setOnFinished(e -> {
 			if(board.getIsAIPlayer() && board.gameState == Board.State.INPROGRESS && allowance.get() && (AIStatus == Status.RUNNING || board.rules.mode == GameMode.pvc))

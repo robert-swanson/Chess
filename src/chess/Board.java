@@ -320,6 +320,59 @@ public class Board {
 		return rv;
 	}
 	
+	public Piece edit(Piece piece, Point p) {
+		if(p == null) {
+			if(piece.isWhite()) {
+				whitePieces.remove(piece.position);
+			}
+			else {
+				blackPieces.remove(piece.position);
+			}
+			return null;
+		}
+		Piece rv = null;
+		if(whitePieces.containsKey(p)) {
+			rv = whitePieces.get(p);
+		}else if(blackPieces.containsKey(p)) {
+			rv = blackPieces.get(p);
+		}
+		if(piece.isWhite()) {
+			whitePieces.put(p, piece);
+			if(whitePieces.get(piece.position) == piece)
+				whitePieces.remove(piece.position);
+		}else {
+			blackPieces.put(p, piece);
+			if(blackPieces.get(piece.position) == piece)
+				blackPieces.remove(piece.position);
+		}
+		piece.position = p;
+		return rv;
+		
+	}
+	
+	/**
+	 * Determines if a particular piece could possibly be the given position and modifies the pieces moves assuming no returns
+	 * @param piece
+	 * @param pos
+	 * @return null if position is invalid else piece with correct moves
+	 */
+	
+	public Piece validPos(Piece piece, Point pos) {
+		boolean top = rules.topPlayer == piece.isWhite();
+		if(piece instanceof Pawn) {
+				if(pos.y == 0 || pos.y == 7) 
+					return null;
+				else if(!(pos.y == 1 && top || !top && pos.y == 6)) 
+					piece.moves = (piece.moves > 0 ? piece.moves : 1);
+					
+		}else if(piece instanceof King) {
+			piece.moves = (top && pos.y == 0 || !top && pos.y == 7) && pos.x == 4 ? piece.moves : (piece.moves > 0 ? piece.moves : 1);
+		}else if(piece instanceof Rook) {
+			piece.moves = (top && pos.y == 0 || !top && pos.y == 7) && (pos.x == 0 || pos.x == 7) ? piece.moves : (piece.moves > 0 ? piece.moves : 1);
+		}
+		return piece;
+	}
+	
 	public Move undo(){
 		Move rv = history.peek();
 		rv.undoMove();
